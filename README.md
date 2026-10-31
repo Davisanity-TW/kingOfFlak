@@ -49,3 +49,19 @@ npm run preview
 標準與規格兩軸審查皆指出初始缺少 README，現已補齊。工作單完成狀態記錄於 `docs/work-plan.md`。
 
 2026-10-31：修正 Chrome 首幀負時間差造成畫面凍結後，使用者於 MacBook／Chrome 確認工單 01 全數驗證完成。瀏覽器版本未提供；此確認僅涵蓋工單 01。
+
+## 公開測試部署（工單 02A）
+
+採用 GitHub Pages 與 `.github/workflows/pages.yml`，依照 [Vite 靜態部署指引](https://vite.dev/guide/static-deploy)設定專案資源路徑 `/kingOfFlak/`。目前尚未發布，實際測試網址與已發布 commit 待部署成功後記錄；工單 02A 尚未完成。
+
+首次發布需將儲存庫 Settings → Pages → Source 設為 GitHub Actions。取得推送授權後，將部署流程推送至 `main`：
+
+```sh
+git push origin main
+```
+
+後續更新同樣推送已驗證的 commit 至 `main`，或使用 `gh workflow run pages.yml --ref main` 重新部署。可透過 `gh run list --workflow pages.yml` 與 `gh run watch <run-id>` 查看結果。流程使用 GitHub 自動提供的 `GITHUB_TOKEN`，不需將憑證寫入專案。
+
+部署成功後，以流程輸出的 HTTPS 網址確認頁面、程式、樣式與重新整理正常；電腦驗證開始、方向鍵移動、碰撞結算與重玩。網址下的 `version.txt` 提供已發布的完整 Git commit，供後續工單確認版本。此靜態網站不依賴開發伺服器或同一個 Wi-Fi。
+
+真實手機驗收尚待執行：使用行動網路開啟發布網址、重新整理並確認畫面載入，記錄裝置型號、瀏覽器與結果。手機搖桿由工單 03 交付。公開網址、電腦線上驗證與真實手機驗收全數完成前，維持 02A 未完成。
