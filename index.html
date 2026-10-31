@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#101917" />
+    <meta
+      name="description"
+      content="操控飛機、閃避彈幕，挑戰你的存活時間。King of Flak 電腦版開發情境。"
+    />
+    <title>King of Flak｜彈幕生存</title>
+    <link rel="icon" href="data:," />
+  </head>
+  <body>
+    <main>
+      <header class="masthead">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">↟</span
+          ><span>KING OF FLAK<small>彈幕生存實驗場</small></span>
+        </div>
+        <span class="build-label"
+          ><span aria-hidden="true">●</span> 工單 01・開發情境</span
+        >
+      </header>
+      <section class="intro" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow">單人飛行 / 生存挑戰</p>
+          <h1 id="page-title">每一秒，都是突破。</h1>
+        </div>
+        <p class="intro-copy">
+          保持移動，穿越彈幕。<br />你的任務只有一個：活下來。
+        </p>
+      </section>
+      <div class="game-layout">
+        <section class="arena-section" aria-label="飛行地圖">
+          <div class="arena-caption">
+            <span><i aria-hidden="true"></i> 飛行空域</span
+            ><span>800 × 600 / 4:3</span>
+          </div>
+          <div class="arena">
+            <canvas
+              width="800"
+              height="600"
+              tabindex="-1"
+              aria-label="飛行地圖：使用方向鍵移動，淺色飛機接觸橘色子彈即結束。"
+              >此遊戲需要支援 Canvas 的瀏覽器。</canvas
+            >
+            <div class="start-overlay" id="start-overlay">
+              <div class="start-card">
+                <span class="flight-symbol" aria-hidden="true">↟</span>
+                <p class="eyebrow">空域已就緒</p>
+                <h2>準備起飛？</h2>
+                <p>
+                  用方向鍵操控飛機，閃避橘色子彈。<br />機身與機翼都不能被碰到。
+                </p>
+                <button id="start-button" type="button">
+                  開始飛行 <span aria-hidden="true">↗</span>
+                </button>
+                <small>電腦鍵盤操作</small>
+              </div>
+            </div>
+          </div>
+          <div class="arena-footer">
+            <span>固定機頭 · 自由移動</span
+            ><span
+              ><i class="bullet-dot" aria-hidden="true"></i> 接觸即結束</span
+            >
+          </div>
+        </section>
+        <aside class="sidebar" aria-label="飛行資訊與操作說明">
+          <section class="telemetry">
+            <p class="eyebrow">本局飛行</p>
+            <h2 id="phase-title" aria-live="polite">等待起飛</h2>
+            <div class="metric">
+              <span>存活時間</span>
+              <div><strong id="survival-time">0.0</strong><span>秒</span></div>
+            </div>
+            <div class="metric bullet-metric">
+              <span>場內子彈數</span>
+              <div><strong id="bullet-count">0</strong><span>顆</span></div>
+            </div>
+            <p id="flight-note">按下開始，直接進入空域。</p>
+            <button id="restart-button" type="button" hidden>
+              再飛一次 <span aria-hidden="true">↗</span>
+            </button>
+          </section>
+          <section class="controls" aria-labelledby="controls-title">
+            <h3 id="controls-title">飛行指南</h3>
+            <div class="keys" aria-label="方向鍵">
+              <kbd>↑</kbd>
+              <div><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd></div>
+            </div>
+            <p>方向鍵移動，鬆開即停。<br />同時按兩鍵可斜向移動。</p>
+            <div class="legend">
+              <span
+                ><i class="plane-swatch" aria-hidden="true"></i> 你的飛機</span
+              ><span><i class="bullet-dot" aria-hidden="true"></i> 子彈</span>
+            </div>
+          </section>
+          <p class="development-note">
+            <strong>開發情境 / 01</strong>本階段為 6
+            顆固定測試子彈，用於驗證操作與碰撞。正式彈幕將於後續工單加入。
+          </p>
+        </aside>
+      </div>
+      <footer class="page-footer">
+        <span>KING OF FLAK</span><span>沒有射擊，只有閃避。</span
+        ><span>電腦版 · v0.1</span>
+      </footer>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
