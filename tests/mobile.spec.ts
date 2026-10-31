@@ -12,7 +12,10 @@ test("mobile map and controls occupy separate areas and pointer release resets t
   await expect(control).toBeVisible();
   const map = (await page.locator("canvas").boundingBox())!;
   const box = (await control.boundingBox())!;
-  expect(box.x + box.width).toBeLessThanOrEqual(map.x);
+  expect(map.x + map.width).toBeLessThanOrEqual(box.x);
+  const status = (await page.locator(".telemetry").boundingBox())!;
+  expect(status.x + status.width).toBeLessThanOrEqual(map.x);
+  expect(box.x + box.width).toBeLessThanOrEqual(640);
   expect(map.width / map.height).toBeCloseTo(4 / 3, 2);
   expect(map.y + map.height).toBeLessThanOrEqual(360);
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
