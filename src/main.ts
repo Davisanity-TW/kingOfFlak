@@ -1,4 +1,5 @@
 import "./style.css";
+import { joystickAxis } from "./joystick.ts";
 import {
   advance,
   beginCountdown,
@@ -156,11 +157,7 @@ function updateStick(event: PointerEvent): void {
   const length = Math.hypot(dx, dy);
   const radius = rect.width * 0.38;
   const distance = Math.min(1, length / radius);
-  const strength = distance <= 0.15 ? 0 : (distance - 0.15) / 0.85;
-  game.axis =
-    length && strength
-      ? { x: (dx / length) * strength, y: (dy / length) * strength }
-      : { x: 0, y: 0 };
+  game.axis = joystickAxis(dx, dy, radius);
   stick.style.transform = `translate(${length ? (dx / length) * radius * distance : 0}px, ${length ? (dy / length) * radius * distance : 0}px)`;
 }
 joystick.addEventListener("pointerdown", (event) => {

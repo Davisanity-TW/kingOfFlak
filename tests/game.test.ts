@@ -399,3 +399,23 @@ test("mobile and desktop schedules cap counts and speeds independently and prese
     assert.equal(game.bullets.length, 40);
   }
 });
+
+test("joystick leaves the dead zone at keyboard speed and stops immediately at center", async () => {
+  const { joystickAxis } = await import("../src/joystick.ts");
+  const game = createGame(true);
+  startGame(game, []);
+  assert.deepEqual(joystickAxis(15, 0, 100), { x: 0, y: 0 });
+  game.axis = joystickAxis(16, 0, 100);
+  advance(game, 0.25);
+  assert.equal(game.player.x, 460);
+  game.axis = joystickAxis(100, 0, 100);
+  advance(game, 0.25);
+  assert.equal(game.player.x, 520);
+  game.axis = joystickAxis(0, 0, 100);
+  advance(game, 0.25);
+  assert.equal(game.player.x, 520);
+  assert.ok(
+    Math.abs(Math.hypot(...Object.values(joystickAxis(30, 30, 100))) - 1) <
+      1e-10,
+  );
+});
