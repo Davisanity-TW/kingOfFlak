@@ -81,8 +81,8 @@ function draw(): void {
 }
 
 function tick(now: number): void {
-  advance(game, (now - lastTime) / 1000);
-  lastTime = now;
+  advance(game, Math.max(0, now - lastTime) / 1000);
+  lastTime = Math.max(lastTime, now);
   draw();
   if (game.phase === "over") {
     phaseTitle.textContent = "飛行結束";

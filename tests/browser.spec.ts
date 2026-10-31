@@ -28,7 +28,8 @@ test("keyboard starts a round, collision freezes the result and restart clears t
 }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  await page.clock.install();
+  await page.clock.install({ time: new Date("2026-01-01T00:00:00Z") });
+  await page.clock.pauseAt(new Date("2026-01-01T00:00:00Z"));
   await page.goto("/");
   await expect(page.getByText("工單 01・開發情境")).toBeVisible();
   await page.keyboard.press("Tab");
@@ -54,7 +55,8 @@ test("keyboard starts a round, collision freezes the result and restart clears t
 test("arrow keys move the rendered plane, release stops it and the map stays proportional", async ({
   page,
 }) => {
-  await page.clock.install();
+  await page.clock.install({ time: new Date("2026-01-01T00:00:00Z") });
+  await page.clock.pauseAt(new Date("2026-01-01T00:00:00Z"));
   await page.goto("/");
   await page.getByRole("button", { name: "開始飛行" }).click();
   const initial = await renderedPlane(page);
@@ -79,4 +81,26 @@ test("arrow keys move the rendered plane, release stops it and the map stays pro
     expect(map!.x).toBeGreaterThanOrEqual(0);
     expect(map!.x + map!.width).toBeLessThanOrEqual(width);
   }
+});
+
+test("an early first animation timestamp cannot stop the game loop", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const request = window.requestAnimationFrame.bind(window);
+    let first = true;
+    window.requestAnimationFrame = (callback) =>
+      request((timestamp) => {
+        if (first) {
+          first = false;
+          callback(timestamp - 100);
+        } else callback(timestamp);
+      });
+  });
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/");
+  await page.getByRole("button", { name: "開始飛行" }).click();
+  await expect(page.locator("#survival-time")).not.toHaveText("0.0");
+  expect(errors).toEqual([]);
 });
