@@ -2,7 +2,10 @@
 <html lang="zh-Hant">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
     <meta name="theme-color" content="#101917" />
     <meta
       name="description"
@@ -33,6 +36,16 @@
       </section>
       <div class="game-layout">
         <section class="arena-section" aria-label="飛行地圖">
+          <div class="mobile-controls">
+            <button
+              id="joystick"
+              type="button"
+              aria-label="飛行搖桿，拖曳控制方向"
+            >
+              <span></span>
+            </button>
+            <p>拖曳搖桿移動</p>
+          </div>
           <div class="arena-caption">
             <span><i aria-hidden="true"></i> 飛行空域</span
             ><span>800 × 600 / 4:3</span>
@@ -56,9 +69,12 @@
                 <button id="start-button" type="button">
                   開始飛行 <span aria-hidden="true">↗</span>
                 </button>
-                <small>電腦鍵盤操作</small>
+                <small>方向鍵或左側搖桿操作</small>
               </div>
             </div>
+          </div>
+          <div class="portrait-prompt" role="status">
+            請將裝置橫放以開始飛行
           </div>
           <div class="arena-footer">
             <span>固定機頭 · 自由移動</span
@@ -79,7 +95,7 @@
               <span>場內子彈數</span>
               <div><strong id="bullet-count">0</strong><span>顆</span></div>
             </div>
-            <p id="flight-note">按下開始，直接進入空域。</p>
+            <p id="flight-note">按下開始，先看 3、2、1 倒數。</p>
             <button id="restart-button" type="button" hidden>
               再飛一次 <span aria-hidden="true">↗</span>
             </button>
@@ -98,8 +114,9 @@
             </div>
           </section>
           <p class="development-note">
-            <strong>彈幕規則</strong>開局 100 顆，每 5 秒增加 40 顆，最多 300
-            顆。 第 10 秒起逐步加速；子彈會緩慢追蹤，碰牆反彈。
+            <strong>彈幕規則</strong>開局 60 顆，每 5 秒增加 20 顆，最多 300
+            顆。 子彈初速每秒 60，第 5 秒起每 5 秒增加 20；前 5
+            秒不追蹤，其後緩慢追蹤，碰牆反彈。
           </p>
         </aside>
       </div>

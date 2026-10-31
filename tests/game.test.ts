@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { closestOutlinePoint } from "../src/collision.ts";
-import { createGame, startGame, setKey, advance } from "../src/game.ts";
+import {
+  beginCountdown,
+  createGame,
+  startGame,
+  setKey,
+  advance,
+} from "../src/game.ts";
 
 test("direction keys move at 240 units per second, normalize diagonals, cancel opposites and stop on release", () => {
   const game = createGame();
@@ -26,6 +31,33 @@ test("direction keys move at 240 units per second, normalize diagonals, cancel o
   assert.deepEqual(game.player, stopped);
 });
 
+test("the opening countdown shows a frozen starting volley before gameplay time begins", () => {
+  const game = createGame();
+  beginCountdown(game, () => 0.5);
+  assert.equal(game.phase, "countdown");
+  assert.equal(game.countdown, 3);
+  assert.equal(game.elapsed, 0);
+  assert.equal(game.bullets.length, 60);
+  const positions = game.bullets.map(({ x, y }) => ({ x, y }));
+  advance(game, 2.999);
+  assert.equal(game.phase, "countdown");
+  assert.equal(game.elapsed, 0);
+  assert.deepEqual(
+    game.bullets.map(({ x, y }) => ({ x, y })),
+    positions,
+  );
+  advance(game, 0.002);
+  assert.equal(game.phase, "playing");
+  assert.ok(game.elapsed > 0);
+  advance(game, 0.1);
+  assert.equal(game.phase, "playing");
+  assert.ok(game.elapsed > 0);
+  assert.notDeepEqual(
+    game.bullets.map(({ x, y }) => ({ x, y })),
+    positions,
+  );
+});
+
 test("large updates follow the real wall-slide path and match short updates", () => {
   const large = createGame();
   const small = createGame();
@@ -45,6 +77,8 @@ test("large updates follow the real wall-slide path and match short updates", ()
 test("test bullets remain in the map and preserve their speed on reflection", () => {
   const game = createGame();
   startGame(game, [{ x: 795.5, y: 100, vx: 120, vy: 0 }]);
+  game.elapsed = 3;
+  game.nextTick = 361;
   advance(game, 0.005);
   assert.ok(Math.abs(game.bullets[0].x - 795.9) < 1e-8);
   assert.equal(game.bullets[0].vx, -120);
@@ -52,8 +86,8 @@ test("test bullets remain in the map and preserve their speed on reflection", ()
 
 test("bullets touch the visible body and wings, but transparent corners remain safe", () => {
   for (const position of [
-    { x: 416, y: 306 },
-    { x: 400, y: 316 },
+    { x: 414, y: 305 },
+    { x: 400, y: 314 },
     { x: 400, y: 300 },
   ]) {
     const game = createGame();
@@ -75,11 +109,13 @@ test("a fast bullet stops the whole world at first contact instead of tunneling 
     { x: 400, y: 100, vx: 0, vy: 1000 },
     { x: 100, y: 300, vx: 100, vy: 0 },
   ]);
+  game.elapsed = 3;
+  game.nextTick = 361;
   advance(game, 1);
   assert.equal(game.phase, "over");
-  assert.ok(Math.abs(game.elapsed - 0.184) < 1e-8);
-  assert.deepEqual(game.contact, { x: 400, y: 288 });
-  assert.ok(Math.abs(game.bullets[1].x - 118.4) < 1e-8);
+  assert.ok(Math.abs(game.elapsed - 3.186) < 1e-8);
+  assert.deepEqual(game.contact, { x: 400, y: 290 });
+  assert.ok(Math.abs(game.bullets[1].x - 118.6) < 1e-8);
 });
 
 test("the full plane stays inside every wall and slides along a wall", () => {
@@ -87,41 +123,42 @@ test("the full plane stays inside every wall and slides along a wall", () => {
   startGame(game, []);
   setKey(game, "ArrowRight", true);
   advance(game, 2);
-  assert.deepEqual(game.player, { x: 788, y: 300 });
+  assert.deepEqual(game.player, { x: 790, y: 300 });
   setKey(game, "ArrowUp", true);
   advance(game, 0.5);
-  assert.equal(game.player.x, 788);
+  assert.equal(game.player.x, 790);
   assert.ok(Math.abs(game.player.y - 215.1471862576143) < 1e-8);
   advance(game, 2);
-  assert.deepEqual(game.player, { x: 788, y: 12 });
+  assert.deepEqual(game.player, { x: 790, y: 10 });
   startGame(game, []);
-  game.player = { x: 788, y: 12 };
+  game.player = { x: 790, y: 10 };
   setKey(game, "ArrowRight", false);
   setKey(game, "ArrowUp", false);
   setKey(game, "ArrowLeft", true);
   setKey(game, "ArrowDown", true);
   advance(game, 4.6);
-  assert.ok(Math.abs(game.player.x - 12) < 1e-8);
-  assert.ok(Math.abs(game.player.y - 588) < 1e-8);
+  assert.ok(Math.abs(game.player.x - 10) < 1e-8);
+  assert.ok(Math.abs(game.player.y - 590) < 1e-8);
 });
 
 test("simultaneous hits freeze one result, include fatal bullets, and restart resets every state", () => {
   const game = createGame();
-  startGame(game, undefined, () => 0.5);
+  startGame(game, undefined, () => 0.25);
   const original = structuredClone(game.bullets);
-  assert.equal(original.length, 100);
+  assert.equal(original.length, 60);
   setKey(game, "ArrowRight", true);
-  startGame(game, undefined, () => 0.5);
+  startGame(game, undefined, () => 0.25);
+  game.bullets[0] = { x: 400, y: 282, vx: 0, vy: 120 };
   assert.equal(game.keys.size, 0);
   advance(game, 4);
   assert.equal(game.phase, "over");
-  assert.equal(game.bullets.length, 100);
-  assert.ok(game.elapsed > 2 && game.elapsed < 3);
+  assert.equal(game.bullets.length, 60);
+  assert.ok(game.elapsed > 0 && game.elapsed < 4);
   const result = structuredClone(game);
   advance(game, 100);
   setKey(game, "ArrowLeft", true);
   assert.deepEqual(game, result);
-  startGame(game, undefined, () => 0.5);
+  startGame(game, undefined, () => 0.25);
   assert.equal(game.phase, "playing");
   assert.deepEqual(game.player, { x: 400, y: 300 });
   assert.equal(game.elapsed, 0);
@@ -140,51 +177,71 @@ test("invalid elapsed time cannot corrupt the game state", () => {
   }
 });
 
-test("a new round spawns 100 circular bullets on all four walls aimed at the plane", () => {
+test("a new round spawns bullets across the map outside the starting safety radius", () => {
   const game = createGame();
+  const draws = [0.1, 0.1, 0.9, 0.1, 0.1, 0.9, 0.9, 0.9];
   let draw = 0;
-  startGame(game, undefined, () => (++draw % 8) / 8);
-  assert.equal(game.bullets.length, 100);
-  const sides = new Set<string>();
+  startGame(game, undefined, () => draws[draw++ % draws.length]);
+  assert.equal(game.bullets.length, 60);
+  const quadrants = new Set<string>();
   for (const bullet of game.bullets) {
     assert.ok(bullet.x >= 4 && bullet.x <= 796);
     assert.ok(bullet.y >= 4 && bullet.y <= 596);
-    if (bullet.x === 4) sides.add("left");
-    else if (bullet.x === 796) sides.add("right");
-    else if (bullet.y === 4) sides.add("top");
-    else if (bullet.y === 596) sides.add("bottom");
-    else assert.fail("bullet must touch a wall");
-    assert.ok(Math.abs(Math.hypot(bullet.vx, bullet.vy) - 120) < 1e-8);
+    assert.ok(Math.hypot(bullet.x - 400, bullet.y - 300) >= 80 - 1e-7);
+    quadrants.add(
+      `${bullet.x < 400 ? "left" : "right"}-${bullet.y < 300 ? "top" : "bottom"}`,
+    );
+    assert.ok(Math.abs(Math.hypot(bullet.vx, bullet.vy) - 60) < 1e-8);
     assert.ok(
       Math.abs((400 - bullet.x) * bullet.vy - (300 - bullet.y) * bullet.vx) <
         1e-7,
     );
   }
-  assert.equal(sides.size, 4);
+  assert.equal(quadrants.size, 4);
 });
 
-test("homing turns by at most 12 degrees per second without changing speed", () => {
+test("homing turns by at most 12 degrees per second after five seconds", () => {
   const game = createGame();
-  startGame(game, [{ x: 100, y: 100, vx: 120, vy: 0 }]);
-  advance(game, 1);
+  startGame(game, [{ x: 100, y: 100, vx: 60, vy: 0 }]);
+  game.player = { x: 400, y: 300 };
+  advance(game, 4.99);
+  assert.equal(game.bullets[0].vx, 60);
+  assert.equal(game.bullets[0].vy, 0);
+  advance(game, 0.02);
   const bullet = game.bullets[0];
-  assert.ok(Math.abs(Math.atan2(bullet.vy, bullet.vx) - Math.PI / 15) < 1e-8);
-  assert.ok(Math.abs(Math.hypot(bullet.vx, bullet.vy) - 120) < 1e-8);
+  const turned = Math.atan2(bullet.vy, bullet.vx);
+  assert.ok(turned > 0 && turned <= ((12 * Math.PI) / 180 / 120) * 3 + 1e-8);
+  assert.ok(Math.abs(Math.hypot(bullet.vx, bullet.vy) - 80) < 1e-8);
+});
+
+test("bullets start at speed 60 and accelerate to 80 at five seconds", () => {
+  const game = createGame();
+  startGame(game, [{ x: 100, y: 100, vx: 60, vy: 0 }]);
+  advance(game, 4.99);
+  assert.ok(Math.abs(game.bullets[0].x - 399.4) < 1e-8);
+  assert.equal(game.bullets[0].vx, 60);
+  advance(game, 0.02);
+  assert.ok(Math.abs(game.bullets[0].x - 400.8) < 1e-4);
+  assert.ok(
+    Math.abs(Math.hypot(game.bullets[0].vx, game.bullets[0].vy) - 80) < 1e-8,
+  );
+  assert.ok(game.bullets[0].y > 100);
 });
 
 test("scheduled volleys and speed increases match the specification and reset on restart", () => {
   const game = createGame();
   startGame(game);
   const milestones = new Map([
-    [5, [140, 120]],
-    [10, [180, 140]],
-    [15, [220, 160]],
-    [25, [300, 200]],
-    [30, [300, 220]],
-    [50, [300, 300]],
-    [55, [300, 300]],
+    [5, [80, 80]],
+    [10, [100, 100]],
+    [15, [120, 120]],
+    [25, [160, 160]],
+    [30, [180, 180]],
+    [50, [260, 260]],
+    [60, [300, 300]],
+    [65, [300, 300]],
   ]);
-  for (let second = 1; second <= 55; second++) {
+  for (let second = 1; second <= 65; second++) {
     // Park the public fixture state between updates to observe long rounds without deaths.
     for (const bullet of game.bullets)
       Object.assign(bullet, { x: 4, y: 4, vx: 0, vy: 0 });
@@ -194,7 +251,7 @@ test("scheduled volleys and speed increases match the specification and reset on
     if (expected) {
       assert.equal(game.bullets.length, expected[0]);
       assert.equal(game.bulletSpeed, expected[1]);
-      if (second >= 10)
+      if (second >= 5)
         for (const bullet of game.bullets) {
           assert.ok(
             Math.abs(Math.hypot(bullet.vx, bullet.vy) - expected[1]) < 1e-8,
@@ -204,66 +261,75 @@ test("scheduled volleys and speed increases match the specification and reset on
   }
   startGame(game);
   assert.equal(game.elapsed, 0);
-  assert.equal(game.bullets.length, 100);
-  assert.equal(game.bulletSpeed, 120);
+  assert.equal(game.bullets.length, 60);
+  assert.equal(game.bulletSpeed, 60);
 });
 
-test("wall volleys keep an 80-unit gap from the full outline even beside walls and corners", () => {
-  for (const player of [
-    { x: 12, y: 300 },
-    { x: 788, y: 300 },
-    { x: 400, y: 12 },
-    { x: 400, y: 588 },
-    { x: 12, y: 12 },
-  ]) {
-    for (const sample of [0, 0.25, 0.5, 0.75, 0.999999]) {
-      const game = createGame();
-      startGame(game, []);
-      game.player = player;
-      let draw = 0;
-      advance(game, 5, () => (draw++ % 2 === 0 ? (draw % 8) / 8 : sample));
-      assert.equal(game.bullets.length, 40);
-      for (const bullet of game.bullets) {
-        const relative = { x: bullet.x - player.x, y: bullet.y - player.y };
-        const nearest = closestOutlinePoint(relative);
-        assert.ok(
-          Math.hypot(relative.x - nearest.x, relative.y - nearest.y) >=
-            84 - 1e-7,
-        );
-      }
-    }
+test("later volleys spawn from an edge even after the plane moves", () => {
+  const game = createGame();
+  startGame(game, []);
+  setKey(game, "ArrowRight", true);
+  advance(game, 2);
+  advance(game, 3, () => 0.375);
+  assert.equal(game.bullets.length, 20);
+  for (const bullet of game.bullets) {
+    assert.ok(Math.abs(bullet.x - 796) < 1e-8);
+    assert.ok(bullet.y >= 4 && bullet.y <= 596);
   }
+});
+
+test("later volleys choose random positions along all four map edges", () => {
+  const game = createGame();
+  startGame(game, []);
+  const draws = [0.01, 0.5, 0.26, 0.25, 0.51, 0.5, 0.76, 0.75];
+  let draw = 0;
+  advance(game, 5, () => draws[draw++ % draws.length]);
+  assert.equal(game.bullets.length, 20);
+  const edges = new Set<string>();
+  for (const bullet of game.bullets) {
+    assert.ok(bullet.x >= 4 && bullet.x <= 796);
+    assert.ok(bullet.y >= 4 && bullet.y <= 596);
+    if (bullet.y === 4) edges.add("top");
+    if (bullet.x === 796) edges.add("right");
+    if (bullet.y === 596) edges.add("bottom");
+    if (bullet.x === 4) edges.add("left");
+  }
+  assert.equal(edges.size, 4);
 });
 
 test("a corner reflection reverses both components and highest-speed sweeps still hit", () => {
   const game = createGame();
   startGame(game, [{ x: 795.5, y: 595.5, vx: 120, vy: 120 }]);
+  game.elapsed = 3;
+  game.nextTick = 361;
   advance(game, 0.005);
   assert.equal(game.bullets[0].vx, -120);
   assert.equal(game.bullets[0].vy, -120);
   startGame(game, [{ x: 400, y: 283, vx: 0, vy: 300 }]);
+  game.elapsed = 3;
+  game.nextTick = 361;
   advance(game, 0.1);
   assert.equal(game.phase, "over");
-  assert.ok(Math.abs(game.elapsed - 1 / 300) < 1e-8);
+  assert.ok(Math.abs(game.elapsed - 3.01) < 1e-8);
 });
 
 test("one long update and different frame rates agree across multiple volleys and acceleration", () => {
   function run(frame: number) {
     const game = createGame();
     startGame(game, []);
-    game.player = { x: 788, y: 588 };
+    game.player = { x: 790, y: 590 };
     for (let time = 0; time < 12 - 1e-9; time += frame)
       advance(game, Math.min(frame, 12 - time), () => 0);
     return game;
   }
   const large = run(12);
   assert.equal(large.phase, "playing");
-  assert.equal(large.bullets.length, 80);
-  assert.equal(large.bulletSpeed, 140);
+  assert.equal(large.bullets.length, 40);
+  assert.equal(large.bulletSpeed, 100);
   for (const frame of [1 / 30, 1 / 144]) {
     const small = run(frame);
     assert.equal(small.bullets.length, large.bullets.length);
-    assert.equal(small.bulletSpeed, 140);
+    assert.equal(small.bulletSpeed, 100);
     for (let i = 0; i < large.bullets.length; i++)
       for (const key of ["x", "y", "vx", "vy"] as const) {
         assert.ok(

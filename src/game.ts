@@ -3,101 +3,106 @@ import { closestOutlinePoint, firstContact } from "./collision.ts";
 export type Point = { x: number; y: number };
 export type Bullet = Point & { vx: number; vy: number };
 export type Game = {
-  phase: "ready" | "playing" | "over";
+  phase: "ready" | "countdown" | "playing" | "over";
   player: Point;
+  startPosition: Point;
   bullets: Bullet[];
   keys: Set<string>;
+  axis: Point;
   elapsed: number;
   nextTick: number;
   bulletSpeed: number;
+  countdown: number;
   contact: Point | null;
 };
 
 export const WIDTH = 800;
 export const HEIGHT = 600;
 export const BULLET_RADIUS = 4;
+export const PLANE_HALF_SIZE = 10;
+const HOMING_START = 5;
 export const PLANE: readonly Point[] = [
-  { x: 0, y: -12 },
-  { x: 4, y: -3 },
-  { x: 12, y: 5 },
-  { x: 12, y: 8 },
-  { x: 3, y: 5 },
-  { x: 3, y: 12 },
-  { x: -3, y: 12 },
-  { x: -3, y: 5 },
-  { x: -12, y: 8 },
-  { x: -12, y: 5 },
-  { x: -4, y: -3 },
+  { x: 0, y: -10 },
+  { x: 3.33, y: -2.5 },
+  { x: 10, y: 4.17 },
+  { x: 10, y: 6.67 },
+  { x: 2.5, y: 4.17 },
+  { x: 2.5, y: 10 },
+  { x: -2.5, y: 10 },
+  { x: -2.5, y: 4.17 },
+  { x: -10, y: 6.67 },
+  { x: -10, y: 4.17 },
+  { x: -3.33, y: -2.5 },
 ];
 
 export function createGame(): Game {
   return {
     phase: "ready",
     player: { x: WIDTH / 2, y: HEIGHT / 2 },
+    startPosition: { x: WIDTH / 2, y: HEIGHT / 2 },
     bullets: [],
     keys: new Set(),
+    axis: { x: 0, y: 0 },
     elapsed: 0,
     nextTick: 1,
-    bulletSpeed: 120,
+    bulletSpeed: 60,
+    countdown: 0,
     contact: null,
   };
 }
 
-function spawnBullets(game: Game, count: number, random: () => number): void {
+function spawnBullets(
+  game: Game,
+  count: number,
+  random: () => number,
+  fromEdges = false,
+): void {
   if (game.bullets.length >= 300) return;
-  const min = BULLET_RADIUS;
-  const right = WIDTH - BULLET_RADIUS;
-  const bottom = HEIGHT - BULLET_RADIUS;
-  const edges = [
-    { x: min, y: min, dx: right - min, dy: 0 },
-    { x: right, y: min, dx: 0, dy: bottom - min },
-    { x: min, y: bottom, dx: right - min, dy: 0 },
-    { x: min, y: min, dx: 0, dy: bottom - min },
-  ]
-    .map((edge) => {
-      const start = { x: edge.x - game.player.x, y: edge.y - game.player.y };
-      const delta = { x: edge.dx, y: edge.dy };
-      const entry = firstContact(start, delta, 80 + BULLET_RADIUS);
-      const ranges: [number, number][] = [];
-      if (entry === null) ranges.push([0, 1]);
-      else {
-        const reverse = firstContact(
-          { x: start.x + edge.dx, y: start.y + edge.dy },
-          { x: -edge.dx, y: -edge.dy },
-          80 + BULLET_RADIUS,
-        )!;
-        // The 84-unit safety expansion connects the outline's edge capsules.
-        if (entry > 0) ranges.push([0, entry]);
-        if (reverse > 0) ranges.push([1 - reverse, 1]);
-      }
-      return {
-        ...edge,
-        ranges,
-        length: ranges.reduce((sum, [a, b]) => sum + b - a, 0),
-      };
-    })
-    .filter((edge) => edge.length > 0);
-  if (edges.length === 0) return;
   for (let i = 0; i < count && game.bullets.length < 300; i++) {
-    const edge = edges[Math.floor(random() * edges.length)];
-    let offset = random() * edge.length;
-    let fraction = 0;
-    for (const [a, b] of edge.ranges) {
-      if (offset <= b - a) {
-        fraction = a + offset;
-        break;
+    let x = 0;
+    let y = 0;
+    if (fromEdges) {
+      const edge = Math.floor(random() * 4);
+      const offset = random();
+      switch (edge) {
+        case 0:
+          x = BULLET_RADIUS + offset * (WIDTH - 2 * BULLET_RADIUS);
+          y = BULLET_RADIUS;
+          break;
+        case 1:
+          x = WIDTH - BULLET_RADIUS;
+          y = BULLET_RADIUS + offset * (HEIGHT - 2 * BULLET_RADIUS);
+          break;
+        case 2:
+          x = BULLET_RADIUS + offset * (WIDTH - 2 * BULLET_RADIUS);
+          y = HEIGHT - BULLET_RADIUS;
+          break;
+        default:
+          x = BULLET_RADIUS;
+          y = BULLET_RADIUS + offset * (HEIGHT - 2 * BULLET_RADIUS);
       }
-      offset -= b - a;
+    } else {
+      for (let attempt = 0; attempt < 32; attempt++) {
+        x = BULLET_RADIUS + random() * (WIDTH - 2 * BULLET_RADIUS);
+        y = BULLET_RADIUS + random() * (HEIGHT - 2 * BULLET_RADIUS);
+        if (
+          Math.hypot(x - game.startPosition.x, y - game.startPosition.y) >= 80
+        )
+          break;
+      }
+      if (Math.hypot(x - game.startPosition.x, y - game.startPosition.y) < 80) {
+        x = random() < 0.5 ? BULLET_RADIUS : WIDTH - BULLET_RADIUS;
+        y = random() < 0.5 ? BULLET_RADIUS : HEIGHT - BULLET_RADIUS;
+      }
     }
-    const x = edge.x + edge.dx * fraction;
-    const y = edge.y + edge.dy * fraction;
     const scale =
-      game.bulletSpeed / Math.hypot(game.player.x - x, game.player.y - y);
+      game.bulletSpeed /
+      Math.hypot(game.startPosition.x - x, game.startPosition.y - y);
     game.bullets.push({
       x,
       y,
-      vx: (game.player.x - x) * scale,
-      vy: (game.player.y - y) * scale,
+      vx: (game.startPosition.x - x) * scale,
+      vy: (game.startPosition.y - y) * scale,
     });
   }
 }
@@ -111,7 +116,15 @@ export function startGame(
     phase: "playing",
     bullets: bullets?.map((bullet) => ({ ...bullet })) ?? [],
   });
-  if (bullets === undefined) spawnBullets(game, 100, random);
+  if (bullets === undefined) spawnBullets(game, 60, random);
+}
+
+export function beginCountdown(
+  game: Game,
+  random: () => number = Math.random,
+): void {
+  Object.assign(game, createGame(), { phase: "countdown", countdown: 3 });
+  spawnBullets(game, 60, random);
 }
 
 export function setKey(game: Game, key: string, pressed: boolean): void {
@@ -128,25 +141,46 @@ export function advance(
   if (!Number.isFinite(seconds) || seconds < 0) {
     throw new RangeError("Elapsed time must be finite and nonnegative");
   }
+  if (game.phase === "countdown") {
+    if (seconds < game.countdown - 1e-10) {
+      game.countdown -= seconds;
+      return;
+    }
+    seconds = Math.max(0, seconds - game.countdown);
+    game.countdown = 0;
+    game.phase = "playing";
+  }
   if (game.phase !== "playing") return;
-  const x =
+  const keyX =
     Number(game.keys.has("ArrowRight")) - Number(game.keys.has("ArrowLeft"));
-  const y =
+  const keyY =
     Number(game.keys.has("ArrowDown")) - Number(game.keys.has("ArrowUp"));
-  const scale = 240 / (Math.hypot(x, y) || 1);
+  const x = keyX || game.axis.x;
+  const y = keyY || game.axis.y;
+  const scale = 240 / Math.max(1, Math.hypot(x, y));
   let remaining = seconds;
   while (remaining > 0 && game.phase === "playing") {
-    const vx = blocked(game.player.x, x * scale, 12, WIDTH - 12)
+    const vx = blocked(
+      game.player.x,
+      x * scale,
+      PLANE_HALF_SIZE,
+      WIDTH - PLANE_HALF_SIZE,
+    )
       ? 0
       : x * scale;
-    const vy = blocked(game.player.y, y * scale, 12, HEIGHT - 12)
+    const vy = blocked(
+      game.player.y,
+      y * scale,
+      PLANE_HALF_SIZE,
+      HEIGHT - PLANE_HALF_SIZE,
+    )
       ? 0
       : y * scale;
     let step = Math.min(
       remaining,
       game.nextTick / 120 - game.elapsed,
-      wallTime(game.player.x, vx, 12, WIDTH - 12),
-      wallTime(game.player.y, vy, 12, HEIGHT - 12),
+      wallTime(game.player.x, vx, PLANE_HALF_SIZE, WIDTH - PLANE_HALF_SIZE),
+      wallTime(game.player.y, vy, PLANE_HALF_SIZE, HEIGHT - PLANE_HALF_SIZE),
     );
     for (const bullet of game.bullets) {
       reflect(bullet);
@@ -158,17 +192,15 @@ export function advance(
     }
     moveSegment(game, step, vx * step, vy * step);
     remaining -= step;
-    for (const bullet of game.bullets) {
-      reflect(bullet);
-    }
+    for (const bullet of game.bullets) reflect(bullet);
     if (
       game.phase === "playing" &&
       game.elapsed >= game.nextTick / 120 - 1e-10
     ) {
       game.elapsed = game.nextTick / 120;
-      steer(game);
+      if (game.elapsed >= HOMING_START) steer(game);
       if (game.nextTick % 600 === 0) {
-        if (game.nextTick >= 1200) {
+        if (game.nextTick >= 600) {
           game.bulletSpeed = Math.min(300, game.bulletSpeed + 20);
           for (const bullet of game.bullets) {
             const angle = Math.atan2(bullet.vy, bullet.vx);
@@ -176,7 +208,7 @@ export function advance(
             bullet.vy = Math.sin(angle) * game.bulletSpeed;
           }
         }
-        spawnBullets(game, 40, random);
+        spawnBullets(game, 20, random, true);
       }
       game.nextTick++;
     }
@@ -245,7 +277,10 @@ function moveSegment(
   for (const bullet of game.bullets) {
     const contact = firstContact(
       { x: bullet.x - game.player.x, y: bullet.y - game.player.y },
-      { x: bullet.vx * seconds - dx, y: bullet.vy * seconds - dy },
+      {
+        x: bullet.vx * seconds - dx,
+        y: bullet.vy * seconds - dy,
+      },
       BULLET_RADIUS,
     );
     if (contact !== null && contact <= fraction) {
@@ -254,12 +289,12 @@ function moveSegment(
     }
   }
   game.player.x = Math.max(
-    12,
-    Math.min(WIDTH - 12, game.player.x + dx * fraction),
+    PLANE_HALF_SIZE,
+    Math.min(WIDTH - PLANE_HALF_SIZE, game.player.x + dx * fraction),
   );
   game.player.y = Math.max(
-    12,
-    Math.min(HEIGHT - 12, game.player.y + dy * fraction),
+    PLANE_HALF_SIZE,
+    Math.min(HEIGHT - PLANE_HALF_SIZE, game.player.y + dy * fraction),
   );
   for (const bullet of game.bullets) {
     bullet.x += bullet.vx * seconds * fraction;
