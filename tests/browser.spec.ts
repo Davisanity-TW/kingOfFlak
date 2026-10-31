@@ -26,18 +26,21 @@ async function renderedPlane(page: Page) {
 test("keyboard starts a round, collision freezes the result and restart clears the round", async ({
   page,
 }) => {
+  await page.addInitScript(() => {
+    Math.random = () => 0.5;
+  });
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.clock.install({ time: new Date("2026-01-01T00:00:00Z") });
   await page.clock.pauseAt(new Date("2026-01-01T00:00:00Z"));
   await page.goto("/");
-  await expect(page.getByText("工單 01・開發情境")).toBeVisible();
+  await expect(page.getByText("追蹤彈幕・生存挑戰")).toBeVisible();
   await page.keyboard.press("Tab");
   await expect(page.getByRole("button", { name: "開始飛行" })).toBeFocused();
   await page.keyboard.press("Enter");
   await page.clock.runFor(3000);
   await expect(page.getByRole("heading", { name: "飛行結束" })).toBeVisible();
-  await expect(page.locator("#bullet-count")).toHaveText("6");
+  await expect(page.locator("#bullet-count")).toHaveText("100");
   await expect(page.locator("#survival-time")).toHaveText("2.3");
   await expect(page.getByRole("button", { name: "再飛一次" })).toBeFocused();
   const frozen = await page.locator("canvas").screenshot();
@@ -47,7 +50,7 @@ test("keyboard starts a round, collision freezes the result and restart clears t
   await page.screenshot({ path: "test-results/desktop-result.png" });
   await page.keyboard.press("Enter");
   await expect(page.locator("#survival-time")).toHaveText("0.0");
-  await expect(page.locator("#bullet-count")).toHaveText("6");
+  await expect(page.locator("#bullet-count")).toHaveText("100");
   await expect(page.getByRole("heading", { name: "飛行中" })).toBeVisible();
   expect(errors).toEqual([]);
 });
@@ -103,4 +106,40 @@ test("an early first animation timestamp cannot stop the game loop", async ({
   await page.getByRole("button", { name: "開始飛行" }).click();
   await expect(page.locator("#survival-time")).not.toHaveText("0.0");
   expect(errors).toEqual([]);
+});
+
+test("the playable barrage grows at five seconds and the result keeps the actual bullet count", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Math.random = () => 0;
+  });
+  await page.clock.install({ time: new Date("2026-01-01T00:00:00Z") });
+  await page.clock.pauseAt(new Date("2026-01-01T00:00:00Z"));
+  await page.goto("/");
+  await page.getByRole("button", { name: "開始飛行" }).click();
+  await expect(page.locator("#bullet-count")).toHaveText("100");
+  for (const [key, milliseconds] of [
+    ["ArrowRight", 1500],
+    ["ArrowDown", 1050],
+    ["ArrowLeft", 3000],
+  ] as const) {
+    await page.keyboard.down(key);
+    await page.clock.runFor(milliseconds);
+    await page.keyboard.up(key);
+  }
+  await expect(page.getByRole("heading", { name: "飛行中" })).toBeVisible();
+  await expect(page.locator("#bullet-count")).toHaveText("140");
+  await page.screenshot({ path: "test-results/barrage-playing.png" });
+  await page.keyboard.down("ArrowUp");
+  await page.clock.runFor(2000);
+  await page.keyboard.up("ArrowUp");
+  await expect(page.getByRole("heading", { name: "飛行結束" })).toBeVisible();
+  await expect(page.locator("#bullet-count")).toHaveText("140");
+  const result = await page.locator("#survival-time").textContent();
+  await page.clock.runFor(10000);
+  await expect(page.locator("#bullet-count")).toHaveText("140");
+  await expect(page.locator("#survival-time")).toHaveText(result!);
+  await page.getByRole("button", { name: "再飛一次" }).click();
+  await expect(page.locator("#bullet-count")).toHaveText("100");
 });

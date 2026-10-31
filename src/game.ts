@@ -8,6 +8,8 @@ export type Game = {
   bullets: Bullet[];
   keys: Set<string>;
   elapsed: number;
+  nextTick: number;
+  bulletSpeed: number;
   contact: Point | null;
 };
 
@@ -35,35 +37,81 @@ export function createGame(): Game {
     bullets: [],
     keys: new Set(),
     elapsed: 0,
+    nextTick: 1,
+    bulletSpeed: 120,
     contact: null,
   };
 }
 
-// shortcut: six deterministic non-homing bullets; replace the scenario in ticket 02.
-function developmentBullets(): Bullet[] {
-  return [
-    { x: 400, y: 4 },
-    { x: 796, y: 300 },
-    { x: 400, y: 596 },
-    { x: 4, y: 300 },
-    { x: 200, y: 4 },
-    { x: 600, y: 596 },
-  ].map((point) => {
-    const dx = WIDTH / 2 - point.x;
-    const dy = HEIGHT / 2 - point.y;
-    const scale = 120 / Math.hypot(dx, dy);
-    return { ...point, vx: dx * scale, vy: dy * scale };
-  });
+function spawnBullets(game: Game, count: number, random: () => number): void {
+  if (game.bullets.length >= 300) return;
+  const min = BULLET_RADIUS;
+  const right = WIDTH - BULLET_RADIUS;
+  const bottom = HEIGHT - BULLET_RADIUS;
+  const edges = [
+    { x: min, y: min, dx: right - min, dy: 0 },
+    { x: right, y: min, dx: 0, dy: bottom - min },
+    { x: min, y: bottom, dx: right - min, dy: 0 },
+    { x: min, y: min, dx: 0, dy: bottom - min },
+  ]
+    .map((edge) => {
+      const start = { x: edge.x - game.player.x, y: edge.y - game.player.y };
+      const delta = { x: edge.dx, y: edge.dy };
+      const entry = firstContact(start, delta, 80 + BULLET_RADIUS);
+      const ranges: [number, number][] = [];
+      if (entry === null) ranges.push([0, 1]);
+      else {
+        const reverse = firstContact(
+          { x: start.x + edge.dx, y: start.y + edge.dy },
+          { x: -edge.dx, y: -edge.dy },
+          80 + BULLET_RADIUS,
+        )!;
+        // The 84-unit safety expansion connects the outline's edge capsules.
+        if (entry > 0) ranges.push([0, entry]);
+        if (reverse > 0) ranges.push([1 - reverse, 1]);
+      }
+      return {
+        ...edge,
+        ranges,
+        length: ranges.reduce((sum, [a, b]) => sum + b - a, 0),
+      };
+    })
+    .filter((edge) => edge.length > 0);
+  if (edges.length === 0) return;
+  for (let i = 0; i < count && game.bullets.length < 300; i++) {
+    const edge = edges[Math.floor(random() * edges.length)];
+    let offset = random() * edge.length;
+    let fraction = 0;
+    for (const [a, b] of edge.ranges) {
+      if (offset <= b - a) {
+        fraction = a + offset;
+        break;
+      }
+      offset -= b - a;
+    }
+    const x = edge.x + edge.dx * fraction;
+    const y = edge.y + edge.dy * fraction;
+    const scale =
+      game.bulletSpeed / Math.hypot(game.player.x - x, game.player.y - y);
+    game.bullets.push({
+      x,
+      y,
+      vx: (game.player.x - x) * scale,
+      vy: (game.player.y - y) * scale,
+    });
+  }
 }
 
 export function startGame(
   game: Game,
-  bullets: Bullet[] = developmentBullets(),
+  bullets?: Bullet[],
+  random: () => number = Math.random,
 ): void {
   Object.assign(game, createGame(), {
     phase: "playing",
-    bullets: bullets.map((bullet) => ({ ...bullet })),
+    bullets: bullets?.map((bullet) => ({ ...bullet })) ?? [],
   });
+  if (bullets === undefined) spawnBullets(game, 100, random);
 }
 
 export function setKey(game: Game, key: string, pressed: boolean): void {
@@ -72,7 +120,11 @@ export function setKey(game: Game, key: string, pressed: boolean): void {
   else game.keys.delete(key);
 }
 
-export function advance(game: Game, seconds: number): void {
+export function advance(
+  game: Game,
+  seconds: number,
+  random: () => number = Math.random,
+): void {
   if (!Number.isFinite(seconds) || seconds < 0) {
     throw new RangeError("Elapsed time must be finite and nonnegative");
   }
@@ -92,14 +144,12 @@ export function advance(game: Game, seconds: number): void {
       : y * scale;
     let step = Math.min(
       remaining,
+      game.nextTick / 120 - game.elapsed,
       wallTime(game.player.x, vx, 12, WIDTH - 12),
       wallTime(game.player.y, vy, 12, HEIGHT - 12),
     );
     for (const bullet of game.bullets) {
-      if (blocked(bullet.x, bullet.vx, BULLET_RADIUS, WIDTH - BULLET_RADIUS))
-        bullet.vx *= -1;
-      if (blocked(bullet.y, bullet.vy, BULLET_RADIUS, HEIGHT - BULLET_RADIUS))
-        bullet.vy *= -1;
+      reflect(bullet);
       step = Math.min(
         step,
         wallTime(bullet.x, bullet.vx, BULLET_RADIUS, WIDTH - BULLET_RADIUS),
@@ -108,7 +158,57 @@ export function advance(game: Game, seconds: number): void {
     }
     moveSegment(game, step, vx * step, vy * step);
     remaining -= step;
+    for (const bullet of game.bullets) {
+      reflect(bullet);
+    }
+    if (
+      game.phase === "playing" &&
+      game.elapsed >= game.nextTick / 120 - 1e-10
+    ) {
+      game.elapsed = game.nextTick / 120;
+      steer(game);
+      if (game.nextTick % 600 === 0) {
+        if (game.nextTick >= 1200) {
+          game.bulletSpeed = Math.min(300, game.bulletSpeed + 20);
+          for (const bullet of game.bullets) {
+            const angle = Math.atan2(bullet.vy, bullet.vx);
+            bullet.vx = Math.cos(angle) * game.bulletSpeed;
+            bullet.vy = Math.sin(angle) * game.bulletSpeed;
+          }
+        }
+        spawnBullets(game, 40, random);
+      }
+      game.nextTick++;
+    }
   }
+}
+
+// Steering follows simulation time, independently of rendering or wall-event splits.
+function steer(game: Game): void {
+  const limit = (12 * Math.PI) / 180 / 120;
+  for (const bullet of game.bullets) {
+    const speed = Math.hypot(bullet.vx, bullet.vy);
+    if (speed === 0) continue;
+    const angle = Math.atan2(bullet.vy, bullet.vx);
+    const target = Math.atan2(
+      game.player.y - bullet.y,
+      game.player.x - bullet.x,
+    );
+    const difference = Math.atan2(
+      Math.sin(target - angle),
+      Math.cos(target - angle),
+    );
+    const heading = angle + Math.max(-limit, Math.min(limit, difference));
+    bullet.vx = Math.cos(heading) * speed;
+    bullet.vy = Math.sin(heading) * speed;
+  }
+}
+
+function reflect(bullet: Bullet): void {
+  if (blocked(bullet.x, bullet.vx, BULLET_RADIUS, WIDTH - BULLET_RADIUS))
+    bullet.vx *= -1;
+  if (blocked(bullet.y, bullet.vy, BULLET_RADIUS, HEIGHT - BULLET_RADIUS))
+    bullet.vy *= -1;
 }
 
 function blocked(
