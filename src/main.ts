@@ -22,7 +22,7 @@ const phaseTitle = document.querySelector<HTMLElement>("#phase-title")!;
 const time = document.querySelector<HTMLElement>("#survival-time")!;
 const count = document.querySelector<HTMLElement>("#bullet-count")!;
 const note = document.querySelector<HTMLElement>("#flight-note")!;
-const game = createGame();
+const game = createGame(matchMedia("(pointer: coarse)").matches);
 let lastTime = performance.now();
 let frame: number | undefined;
 

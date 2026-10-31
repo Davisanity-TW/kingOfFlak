@@ -61,7 +61,7 @@ test("keyboard starts a round, collision freezes the result and restart clears t
   await page.keyboard.press("Enter");
   await expect(page.locator("#survival-time")).toHaveText("0.0");
   await expect(page.locator("#bullet-count")).toHaveText("60");
-  await expect(page.getByRole("heading", { name: "飛行中" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "倒數 3" })).toBeVisible();
   expect(errors).toEqual([]);
 });
 

@@ -3,6 +3,7 @@ import { closestOutlinePoint, firstContact } from "./collision.ts";
 export type Point = { x: number; y: number };
 export type Bullet = Point & { vx: number; vy: number };
 export type Game = {
+  mobile: boolean;
   phase: "ready" | "countdown" | "playing" | "over";
   player: Point;
   startPosition: Point;
@@ -18,10 +19,10 @@ export type Game = {
 
 export const WIDTH = 800;
 export const HEIGHT = 600;
-export const BULLET_RADIUS = 4;
-export const PLANE_HALF_SIZE = 10;
+export const BULLET_RADIUS = 2;
+export const PLANE_HALF_SIZE = 8;
 const HOMING_START = 5;
-export const PLANE: readonly Point[] = [
+const originalPlane: readonly Point[] = [
   { x: 0, y: -10 },
   { x: 3.33, y: -2.5 },
   { x: 10, y: 4.17 },
@@ -35,8 +36,14 @@ export const PLANE: readonly Point[] = [
   { x: -3.33, y: -2.5 },
 ];
 
-export function createGame(): Game {
+export const PLANE = originalPlane.map(({ x, y }) => ({
+  x: x * 0.8,
+  y: y * 0.8,
+}));
+
+export function createGame(mobile = false): Game {
   return {
+    mobile,
     phase: "ready",
     player: { x: WIDTH / 2, y: HEIGHT / 2 },
     startPosition: { x: WIDTH / 2, y: HEIGHT / 2 },
@@ -45,7 +52,7 @@ export function createGame(): Game {
     axis: { x: 0, y: 0 },
     elapsed: 0,
     nextTick: 1,
-    bulletSpeed: 60,
+    bulletSpeed: mobile ? 40 : 60,
     countdown: 0,
     contact: null,
   };
@@ -57,8 +64,8 @@ function spawnBullets(
   random: () => number,
   fromEdges = false,
 ): void {
-  if (game.bullets.length >= 300) return;
-  for (let i = 0; i < count && game.bullets.length < 300; i++) {
+  if (game.bullets.length >= 160) return;
+  for (let i = 0; i < count && game.bullets.length < 160; i++) {
     let x = 0;
     let y = 0;
     if (fromEdges) {
@@ -112,19 +119,22 @@ export function startGame(
   bullets?: Bullet[],
   random: () => number = Math.random,
 ): void {
-  Object.assign(game, createGame(), {
+  Object.assign(game, createGame(game.mobile), {
     phase: "playing",
     bullets: bullets?.map((bullet) => ({ ...bullet })) ?? [],
   });
-  if (bullets === undefined) spawnBullets(game, 60, random);
+  if (bullets === undefined) spawnBullets(game, game.mobile ? 40 : 60, random);
 }
 
 export function beginCountdown(
   game: Game,
   random: () => number = Math.random,
 ): void {
-  Object.assign(game, createGame(), { phase: "countdown", countdown: 3 });
-  spawnBullets(game, 60, random);
+  Object.assign(game, createGame(game.mobile), {
+    phase: "countdown",
+    countdown: 3,
+  });
+  spawnBullets(game, game.mobile ? 40 : 60, random);
 }
 
 export function setKey(game: Game, key: string, pressed: boolean): void {
@@ -201,14 +211,17 @@ export function advance(
       if (game.elapsed >= HOMING_START) steer(game);
       if (game.nextTick % 600 === 0) {
         if (game.nextTick >= 600) {
-          game.bulletSpeed = Math.min(300, game.bulletSpeed + 20);
+          game.bulletSpeed = Math.min(
+            240,
+            game.bulletSpeed + (game.mobile ? 10 : 20),
+          );
           for (const bullet of game.bullets) {
             const angle = Math.atan2(bullet.vy, bullet.vx);
             bullet.vx = Math.cos(angle) * game.bulletSpeed;
             bullet.vy = Math.sin(angle) * game.bulletSpeed;
           }
         }
-        spawnBullets(game, 20, random, true);
+        spawnBullets(game, game.mobile ? 10 : 20, random, true);
       }
       game.nextTick++;
     }
