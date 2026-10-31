@@ -44,6 +44,8 @@ npm run preview
 
 ## 本次驗證結果
 
-2026-10-31：8 項遊戲狀態測試與 2 項本機 Google Chrome 瀏覽器測試通過；型別檢查、格式檢查與正式建置通過。瀏覽器已驗證鍵盤開始、方向鍵斜移、鬆開停止、碰撞結算、畫面凍結與立即重玩，並檢查 1440、900、640 像素寬度的地圖等比例顯示。結算與飛行截圖由測試產生於 `test-results/desktop-result.png`、`test-results/desktop-playing.png`。
+2026-10-31：8 項遊戲狀態測試與 3 項本機 Google Chrome 瀏覽器測試通過；型別檢查、格式檢查與正式建置通過。瀏覽器已驗證鍵盤開始、方向鍵斜移、鬆開停止、碰撞結算、畫面凍結與立即重玩，並檢查 1440、900、640 像素寬度的地圖等比例顯示。結算與飛行截圖由測試產生於 `test-results/desktop-result.png`、`test-results/desktop-playing.png`。
 
-標準與規格兩軸審查皆指出初始缺少 README，現已補齊。使用者原有的 `docs/work-plan.md` 保留原狀，不納入本次提交。
+標準與規格兩軸審查皆指出初始缺少 README，現已補齊。工作單完成狀態記錄於 `docs/work-plan.md`。
+
+2026-10-31：修正 Chrome 首幀負時間差造成畫面凍結後，使用者於 MacBook／Chrome 確認工單 01 全數驗證完成。瀏覽器版本未提供；此確認僅涵蓋工單 01。
