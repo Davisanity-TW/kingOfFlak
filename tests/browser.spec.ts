@@ -39,7 +39,7 @@ test("keyboard starts a round, collision freezes the result and restart clears t
   await expect(page.getByRole("button", { name: "開始飛行" })).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.locator("#phase-title")).toHaveText("倒數 3");
-  await expect(page.locator("#bullet-count")).toHaveText("60");
+  await expect(page.locator("#bullet-count")).toHaveText("40");
   await expect(page.locator("#survival-time")).toHaveText("0.0");
   await page.clock.runFor(1050);
   await expect(page.locator("#phase-title")).toHaveText("倒數 2");
@@ -47,9 +47,12 @@ test("keyboard starts a round, collision freezes the result and restart clears t
   await expect(page.locator("#phase-title")).toHaveText("倒數 1");
   await page.clock.runFor(1050);
   await expect(page.getByRole("heading", { name: "飛行中" })).toBeVisible();
-  await page.clock.runFor(8000);
+  for (let i = 0; i < 240; i++) {
+    await page.clock.runFor(500);
+    if ((await page.locator("#phase-title").textContent()) === "飛行結束")
+      break;
+  }
   await expect(page.getByRole("heading", { name: "飛行結束" })).toBeVisible();
-  await expect(page.locator("#bullet-count")).toHaveText("80");
   const result = await page.locator("#survival-time").textContent();
   expect(result).not.toBe("0.0");
   await expect(page.getByRole("button", { name: "再飛一次" })).toBeFocused();
@@ -60,7 +63,7 @@ test("keyboard starts a round, collision freezes the result and restart clears t
   await page.screenshot({ path: "test-results/desktop-result.png" });
   await page.keyboard.press("Enter");
   await expect(page.locator("#survival-time")).toHaveText("0.0");
-  await expect(page.locator("#bullet-count")).toHaveText("60");
+  await expect(page.locator("#bullet-count")).toHaveText("40");
   await expect(page.getByRole("heading", { name: "倒數 3" })).toBeVisible();
   expect(errors).toEqual([]);
 });
@@ -131,7 +134,7 @@ test("the playable barrage grows at five seconds and the result keeps the actual
   await page.clock.pauseAt(new Date("2026-01-01T00:00:00Z"));
   await page.goto("/");
   await page.getByRole("button", { name: "開始飛行" }).click();
-  await expect(page.locator("#bullet-count")).toHaveText("60");
+  await expect(page.locator("#bullet-count")).toHaveText("40");
   await page.clock.runFor(3100);
   for (const [key, milliseconds] of [
     ["ArrowRight", 1500],
@@ -143,10 +146,10 @@ test("the playable barrage grows at five seconds and the result keeps the actual
     await page.keyboard.up(key);
   }
   await expect(page.getByRole("heading", { name: "飛行中" })).toBeVisible();
-  await expect(page.locator("#bullet-count")).toHaveText("80");
+  await expect(page.locator("#bullet-count")).toHaveText("60");
   await page.screenshot({ path: "test-results/barrage-playing.png" });
   await page.keyboard.down("ArrowUp");
-  for (let attempt = 0; attempt < 40; attempt++) {
+  for (let attempt = 0; attempt < 240; attempt++) {
     await page.clock.runFor(500);
     if ((await page.locator("#phase-title").textContent()) === "飛行結束")
       break;
@@ -159,5 +162,5 @@ test("the playable barrage grows at five seconds and the result keeps the actual
   await expect(page.locator("#bullet-count")).toHaveText(bulletCount!);
   await expect(page.locator("#survival-time")).toHaveText(result!);
   await page.getByRole("button", { name: "再飛一次" }).click();
-  await expect(page.locator("#bullet-count")).toHaveText("60");
+  await expect(page.locator("#bullet-count")).toHaveText("40");
 });

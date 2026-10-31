@@ -52,7 +52,7 @@ export function createGame(mobile = false): Game {
     axis: { x: 0, y: 0 },
     elapsed: 0,
     nextTick: 1,
-    bulletSpeed: mobile ? 40 : 60,
+    bulletSpeed: 40,
     countdown: 0,
     contact: null,
   };
@@ -123,7 +123,7 @@ export function startGame(
     phase: "playing",
     bullets: bullets?.map((bullet) => ({ ...bullet })) ?? [],
   });
-  if (bullets === undefined) spawnBullets(game, game.mobile ? 40 : 60, random);
+  if (bullets === undefined) spawnBullets(game, 40, random);
 }
 
 export function beginCountdown(
@@ -134,7 +134,7 @@ export function beginCountdown(
     phase: "countdown",
     countdown: 3,
   });
-  spawnBullets(game, game.mobile ? 40 : 60, random);
+  spawnBullets(game, 40, random);
 }
 
 export function setKey(game: Game, key: string, pressed: boolean): void {
@@ -211,10 +211,7 @@ export function advance(
       if (game.elapsed >= HOMING_START) steer(game);
       if (game.nextTick % 600 === 0) {
         if (game.nextTick >= 600) {
-          game.bulletSpeed = Math.min(
-            240,
-            game.bulletSpeed + (game.mobile ? 10 : 20),
-          );
+          game.bulletSpeed = Math.min(240, game.bulletSpeed + 10);
           for (const bullet of game.bullets) {
             const angle = Math.atan2(bullet.vy, bullet.vx);
             bullet.vx = Math.cos(angle) * game.bulletSpeed;

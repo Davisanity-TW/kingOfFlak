@@ -37,7 +37,7 @@ test("the opening countdown shows a frozen starting volley before gameplay time 
   assert.equal(game.phase, "countdown");
   assert.equal(game.countdown, 3);
   assert.equal(game.elapsed, 0);
-  assert.equal(game.bullets.length, 60);
+  assert.equal(game.bullets.length, 40);
   const positions = game.bullets.map(({ x, y }) => ({ x, y }));
   advance(game, 2.999);
   assert.equal(game.phase, "countdown");
@@ -145,14 +145,14 @@ test("simultaneous hits freeze one result, include fatal bullets, and restart re
   const game = createGame();
   startGame(game, undefined, () => 0.25);
   const original = structuredClone(game.bullets);
-  assert.equal(original.length, 60);
+  assert.equal(original.length, 40);
   setKey(game, "ArrowRight", true);
   startGame(game, undefined, () => 0.25);
   game.bullets[0] = { x: 400, y: 282, vx: 0, vy: 120 };
   assert.equal(game.keys.size, 0);
   advance(game, 4);
   assert.equal(game.phase, "over");
-  assert.equal(game.bullets.length, 60);
+  assert.equal(game.bullets.length, 40);
   assert.ok(game.elapsed > 0 && game.elapsed < 4);
   const result = structuredClone(game);
   advance(game, 100);
@@ -182,7 +182,7 @@ test("a new round spawns bullets across the map outside the starting safety radi
   const draws = [0.1, 0.1, 0.9, 0.1, 0.1, 0.9, 0.9, 0.9];
   let draw = 0;
   startGame(game, undefined, () => draws[draw++ % draws.length]);
-  assert.equal(game.bullets.length, 60);
+  assert.equal(game.bullets.length, 40);
   const quadrants = new Set<string>();
   for (const bullet of game.bullets) {
     assert.ok(bullet.x >= 2 && bullet.x <= 798);
@@ -191,7 +191,7 @@ test("a new round spawns bullets across the map outside the starting safety radi
     quadrants.add(
       `${bullet.x < 400 ? "left" : "right"}-${bullet.y < 300 ? "top" : "bottom"}`,
     );
-    assert.ok(Math.abs(Math.hypot(bullet.vx, bullet.vy) - 60) < 1e-8);
+    assert.ok(Math.abs(Math.hypot(bullet.vx, bullet.vy) - 40) < 1e-8);
     assert.ok(
       Math.abs((400 - bullet.x) * bullet.vy - (300 - bullet.y) * bullet.vx) <
         1e-7,
@@ -211,19 +211,19 @@ test("homing turns by at most 12 degrees per second after five seconds", () => {
   const bullet = game.bullets[0];
   const turned = Math.atan2(bullet.vy, bullet.vx);
   assert.ok(turned > 0 && turned <= ((12 * Math.PI) / 180 / 120) * 3 + 1e-8);
-  assert.ok(Math.abs(Math.hypot(bullet.vx, bullet.vy) - 80) < 1e-8);
+  assert.ok(Math.abs(Math.hypot(bullet.vx, bullet.vy) - 50) < 1e-8);
 });
 
-test("bullets start at speed 60 and accelerate to 80 at five seconds", () => {
+test("bullets start at speed 40 and accelerate to 50 at five seconds", () => {
   const game = createGame();
   startGame(game, [{ x: 100, y: 100, vx: 60, vy: 0 }]);
   advance(game, 4.99);
   assert.ok(Math.abs(game.bullets[0].x - 399.4) < 1e-8);
   assert.equal(game.bullets[0].vx, 60);
   advance(game, 0.02);
-  assert.ok(Math.abs(game.bullets[0].x - 400.8) < 1e-4);
+  assert.ok(Math.abs(game.bullets[0].x - 400.5) < 1e-4);
   assert.ok(
-    Math.abs(Math.hypot(game.bullets[0].vx, game.bullets[0].vy) - 80) < 1e-8,
+    Math.abs(Math.hypot(game.bullets[0].vx, game.bullets[0].vy) - 50) < 1e-8,
   );
   assert.ok(game.bullets[0].y > 100);
 });
@@ -232,14 +232,14 @@ test("scheduled volleys and speed increases match the specification and reset on
   const game = createGame();
   startGame(game);
   const milestones = new Map([
-    [5, [80, 80]],
-    [10, [100, 100]],
-    [15, [120, 120]],
-    [25, [160, 160]],
-    [30, [160, 180]],
-    [50, [160, 240]],
-    [60, [160, 240]],
-    [65, [160, 240]],
+    [5, [60, 50]],
+    [10, [80, 60]],
+    [15, [100, 70]],
+    [25, [140, 90]],
+    [30, [160, 100]],
+    [50, [160, 140]],
+    [60, [160, 160]],
+    [65, [160, 170]],
   ]);
   for (let second = 1; second <= 65; second++) {
     // Park the public fixture state between updates to observe long rounds without deaths.
@@ -261,8 +261,8 @@ test("scheduled volleys and speed increases match the specification and reset on
   }
   startGame(game);
   assert.equal(game.elapsed, 0);
-  assert.equal(game.bullets.length, 60);
-  assert.equal(game.bulletSpeed, 60);
+  assert.equal(game.bullets.length, 40);
+  assert.equal(game.bulletSpeed, 40);
 });
 
 test("later volleys spawn from an edge even after the plane moves", () => {
@@ -325,11 +325,11 @@ test("one long update and different frame rates agree across multiple volleys an
   const large = run(12);
   assert.equal(large.phase, "playing");
   assert.equal(large.bullets.length, 40);
-  assert.equal(large.bulletSpeed, 100);
+  assert.equal(large.bulletSpeed, 60);
   for (const frame of [1 / 30, 1 / 144]) {
     const small = run(frame);
     assert.equal(small.bullets.length, large.bullets.length);
-    assert.equal(small.bulletSpeed, 100);
+    assert.equal(small.bulletSpeed, 60);
     for (let i = 0; i < large.bullets.length; i++)
       for (const key of ["x", "y", "vx", "vy"] as const) {
         assert.ok(
@@ -379,8 +379,8 @@ test("mobile and desktop schedules cap counts and speeds independently and prese
   for (const mobile of [false, true]) {
     const game = createGame(mobile);
     beginCountdown(game, () => 0);
-    assert.equal(game.bullets.length, mobile ? 40 : 60);
-    assert.equal(game.bulletSpeed, mobile ? 40 : 60);
+    assert.equal(game.bullets.length, 40);
+    assert.equal(game.bulletSpeed, 40);
     advance(game, 3);
     for (let second = 1; second <= 105; second++) {
       for (const bullet of game.bullets)
@@ -388,20 +388,14 @@ test("mobile and desktop schedules cap counts and speeds independently and prese
       advance(game, 1, () => 0);
       assert.equal(
         game.bullets.length,
-        Math.min(
-          160,
-          (mobile ? 40 : 60) + Math.floor(second / 5) * (mobile ? 10 : 20),
-        ),
+        Math.min(160, 40 + Math.floor(second / 5) * (mobile ? 10 : 20)),
       );
       assert.equal(
         game.bulletSpeed,
-        Math.min(
-          240,
-          (mobile ? 40 : 60) + Math.floor(second / 5) * (mobile ? 10 : 20),
-        ),
+        Math.min(240, 40 + Math.floor(second / 5) * 10),
       );
     }
     startGame(game);
-    assert.equal(game.bullets.length, mobile ? 40 : 60);
+    assert.equal(game.bullets.length, 40);
   }
 });
