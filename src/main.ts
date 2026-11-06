@@ -1,6 +1,11 @@
 import "./style.css";
 import { joystickAxis } from "./joystick.ts";
 import {
+  createRoundIdentity,
+  NICKNAME_STORAGE_KEY,
+  readSavedNickname,
+} from "./nickname.ts";
+import {
   advance,
   beginCountdown,
   BULLET_RADIUS,
@@ -31,6 +36,42 @@ const resumeButton =
 const pauseOverlay = document.querySelector<HTMLElement>("#pause-overlay")!;
 const portrait = matchMedia("(pointer: coarse) and (orientation: portrait)");
 const game = createGame(matchMedia("(pointer: coarse)").matches);
+const nicknameInput = document.querySelector<HTMLInputElement>("#nickname")!;
+const nicknameError = document.querySelector<HTMLElement>("#nickname-error")!;
+const nicknamePreview =
+  document.querySelector<HTMLElement>("#nickname-preview")!;
+const storageNote = document.querySelector<HTMLElement>("#storage-note")!;
+const roundPilot = document.querySelector<HTMLElement>("#round-pilot")!;
+const editButton = document.querySelector<HTMLButtonElement>("#edit-nickname")!;
+const cancelEdit = document.querySelector<HTMLButtonElement>("#cancel-edit")!;
+let roundIdentity: ReturnType<typeof createRoundIdentity> = null;
+try {
+  nicknameInput.value = readSavedNickname(
+    localStorage.getItem(NICKNAME_STORAGE_KEY),
+  );
+} catch {
+  storageNote.textContent = "無法記住暱稱，仍可正常遊玩。";
+  storageNote.hidden = false;
+}
+function previewNickname(): void {
+  const identity = createRoundIdentity(nicknameInput.value, game.mobile);
+  nicknamePreview.textContent = `顯示名稱：${identity?.displayName ?? "尚未輸入有效暱稱"}`;
+  nicknameError.hidden = true;
+  nicknameInput.removeAttribute("aria-invalid");
+}
+nicknameInput.addEventListener("input", previewNickname);
+previewNickname();
+function fitEntry(): void {
+  startOverlay.style.setProperty(
+    "--entry-height",
+    `${visualViewport?.height ?? innerHeight}px`,
+  );
+}
+nicknameInput.addEventListener("focus", () => {
+  startOverlay.classList.add("editing-name");
+  fitEntry();
+});
+visualViewport?.addEventListener("resize", fitEntry);
 let lastTime = performance.now();
 let frame: number | undefined;
 
@@ -108,6 +149,7 @@ function tick(now: number): void {
     phaseTitle.textContent = "飛行結束";
     note.textContent = "圓圈標示致命接觸位置。準備好再挑戰了嗎？";
     restartButton.hidden = false;
+    editButton.hidden = false;
     restartButton.focus({ preventScroll: true });
     frame = undefined;
   } else if (game.phase === "countdown") {
@@ -128,17 +170,45 @@ function begin(): void {
     (game.phase !== "ready" && game.phase !== "over")
   )
     return;
+  const identity = createRoundIdentity(nicknameInput.value, game.mobile);
+  if (!identity) {
+    startOverlay.hidden = false;
+    nicknameError.textContent =
+      "請輸入 1–12 個字，只能使用漢字、英文字、數字或底線。";
+    nicknameError.hidden = false;
+    nicknameInput.setAttribute("aria-invalid", "true");
+    nicknameInput.focus({ preventScroll: true });
+    return;
+  }
+  roundIdentity = identity;
+  nicknameInput.value = identity.nickname;
+  try {
+    localStorage.setItem(
+      NICKNAME_STORAGE_KEY,
+      JSON.stringify({ version: 1, nickname: identity.nickname }),
+    );
+    storageNote.hidden = true;
+  } catch {
+    storageNote.textContent = "無法記住暱稱，仍可正常遊玩。";
+    storageNote.hidden = false;
+  }
+  roundPilot.textContent = roundIdentity.displayName;
+  roundPilot.hidden = false;
   resetStick();
   if (frame !== undefined) cancelAnimationFrame(frame);
   beginCountdown(game);
   startOverlay.hidden = true;
+  startOverlay.classList.remove("editing-name");
   restartButton.hidden = true;
+  editButton.hidden = true;
   phaseTitle.textContent = "倒數 3";
   note.textContent = "倒數結束後開始閃避。";
   canvas.focus({ preventScroll: true });
   lastTime = performance.now();
   draw();
   frame = requestAnimationFrame(tick);
+  if (game.mobile)
+    document.documentElement.requestFullscreen?.().catch(() => {});
 }
 
 function pause(): void {
@@ -177,10 +247,32 @@ window.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !event.repeat) pause();
 });
 
-startButton.addEventListener("click", begin);
+document
+  .querySelector<HTMLFormElement>("#pilot-form")!
+  .addEventListener("submit", (event) => {
+    event.preventDefault();
+    begin();
+  });
 restartButton.addEventListener("click", begin);
+editButton.addEventListener("click", () => {
+  if (game.phase !== "over") return;
+  startOverlay.hidden = false;
+  startButton.textContent = "確認並起飛";
+  cancelEdit.hidden = false;
+  previewNickname();
+  nicknameInput.focus({ preventScroll: true });
+});
+cancelEdit.addEventListener("click", () => {
+  if (game.phase !== "over" || !roundIdentity) return;
+  nicknameInput.value = roundIdentity.nickname;
+  previewNickname();
+  startOverlay.hidden = true;
+  startOverlay.classList.remove("editing-name");
+  restartButton.focus({ preventScroll: true });
+});
 for (const eventType of ["keydown", "keyup"] as const) {
   window.addEventListener(eventType, (event) => {
+    if (event.target instanceof HTMLInputElement) return;
     if (
       !["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)
     )
@@ -233,10 +325,5 @@ for (const name of [
     if (event.pointerId === activePointer) resetStick();
   });
 window.addEventListener("blur", resetStick);
-for (const button of [startButton, restartButton])
-  button.addEventListener("click", () => {
-    if (matchMedia("(pointer: coarse) and (orientation: landscape)").matches)
-      document.documentElement.requestFullscreen?.().catch(() => {});
-  });
 if (!matchMedia("(pointer: coarse)").matches)
   document.querySelector(".mobile-controls")?.remove();

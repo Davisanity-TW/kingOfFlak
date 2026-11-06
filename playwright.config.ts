@@ -6,7 +6,7 @@ export default defineConfig({
   testDir: "./tests",
   testMatch: process.env.FLAK_PERFORMANCE
     ? "performance.spec.ts"
-    : "{browser,mobile}.spec.ts",
+    : "{browser,mobile,nickname}.spec.ts",
   outputDir: process.env.FLAK_PERFORMANCE
     ? "performance-results"
     : "test-results",

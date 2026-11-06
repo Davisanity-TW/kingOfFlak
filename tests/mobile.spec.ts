@@ -1,4 +1,13 @@
 import { test, expect } from "@playwright/test";
+
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      "king-of-flak.nickname",
+      JSON.stringify({ version: 1, nickname: "Ace" }),
+    );
+  });
+});
 test.use({
   hasTouch: true,
   isMobile: true,

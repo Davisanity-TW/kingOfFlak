@@ -44,6 +44,7 @@ test("160 bullets at maximum speed remain responsive for ten real minutes", asyn
     await route.fulfill({ response, body });
   });
   await page.goto("/");
+  await page.getByLabel("飛行暱稱", { exact: true }).fill("壓測");
   await page.getByRole("button", { name: "開始飛行" }).click();
   await expect(page.locator("#phase-title")).toHaveText("飛行中", {
     timeout: 10_000,

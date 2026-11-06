@@ -1,4 +1,13 @@
 import { test, expect } from "@playwright/test";
+
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      "king-of-flak.nickname",
+      JSON.stringify({ version: 1, nickname: "Ace" }),
+    );
+  });
+});
 import type { Page } from "@playwright/test";
 
 async function renderedPlane(page: Page) {
@@ -36,6 +45,8 @@ test("keyboard starts a round, collision freezes the result and restart clears t
   await page.clock.pauseAt(new Date("2026-01-01T00:00:00Z"));
   await page.goto("/");
   await expect(page.getByText("追蹤彈幕・生存挑戰")).toBeVisible();
+  await page.keyboard.press(browserName === "webkit" ? "Alt+Tab" : "Tab");
+  await expect(page.getByLabel("飛行暱稱", { exact: true })).toBeFocused();
   await page.keyboard.press(browserName === "webkit" ? "Alt+Tab" : "Tab");
   await expect(page.getByRole("button", { name: "開始飛行" })).toBeFocused();
   await page.keyboard.press("Enter");

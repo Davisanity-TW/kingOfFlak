@@ -61,13 +61,30 @@
               <div class="start-card">
                 <p class="eyebrow">飛行任務 01 / 閃避</p>
                 <h2>讓每一秒，都算數。</h2>
-                <p>
-                  穿越追蹤彈幕，挑戰你的存活極限。<br />碰到子彈，這趟飛行就結束。
-                </p>
-                <button id="start-button" type="button">
-                  開始飛行 <span aria-hidden="true">↗</span>
-                </button>
-                <small>方向鍵或右側搖桿操作</small>
+                <form id="pilot-form" novalidate>
+                  <label for="nickname">飛行暱稱</label>
+                  <input
+                    id="nickname"
+                    name="nickname"
+                    type="text"
+                    autocomplete="nickname"
+                    autocapitalize="none"
+                    spellcheck="false"
+                    aria-describedby="nickname-rule nickname-error"
+                  />
+                  <p id="nickname-rule">
+                    1–12 個字，限漢字、英文字、數字或底線。
+                  </p>
+                  <p id="nickname-preview">顯示名稱：尚未輸入</p>
+                  <p id="nickname-error" role="alert" hidden></p>
+                  <p class="public-note">
+                    暱稱與成績將公開顯示；排行榜尚未啟用。
+                  </p>
+                  <button id="start-button" type="submit">開始飛行</button>
+                  <button id="cancel-edit" type="button" hidden>
+                    返回結算
+                  </button>
+                </form>
               </div>
             </div>
             <div class="start-overlay" id="pause-overlay" hidden>
@@ -96,6 +113,8 @@
           <section class="telemetry">
             <p class="eyebrow">飛行紀錄 / 本局</p>
             <h2 id="phase-title" aria-live="polite">等待起飛</h2>
+            <p id="round-pilot" hidden></p>
+            <p id="storage-note" role="status" hidden></p>
             <div class="metric">
               <span>存活時間</span>
               <div><strong id="survival-time">0.0</strong><span>秒</span></div>
@@ -111,6 +130,7 @@
             <button id="restart-button" type="button" hidden>
               再飛一次 <span aria-hidden="true">↗</span>
             </button>
+            <button id="edit-nickname" type="button" hidden>修改暱稱</button>
           </section>
           <section class="controls" aria-labelledby="controls-title">
             <h3 id="controls-title">飛行指南</h3>
