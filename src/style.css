@@ -437,6 +437,7 @@ kbd {
     padding: 0;
     display: grid;
     place-items: center;
+    place-content: center;
     background: #263025;
     border: 1px solid var(--accent);
     box-shadow: inset 0 0 0 14px #111e1b99;

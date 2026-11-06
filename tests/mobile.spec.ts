@@ -173,3 +173,69 @@ test("fullscreen rejection and pointer cancellation preserve playable mobile con
   );
   expect(errors).toEqual([]);
 });
+
+test("the idle joystick knob is visually centered", async ({ page }) => {
+  await page.goto("/");
+  const base = (await page.locator("#joystick").boundingBox())!;
+  const knob = (await page.locator("#joystick span").boundingBox())!;
+  expect(
+    Math.abs(knob.x + knob.width / 2 - (base.x + base.width / 2)),
+  ).toBeLessThan(1);
+  expect(
+    Math.abs(knob.y + knob.height / 2 - (base.y + base.height / 2)),
+  ).toBeLessThan(1);
+});
+
+test("short drags move slowly, full drags reach full speed, and centering stops immediately", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Math.random = () => 0;
+  });
+  await page.clock.install({ time: new Date("2026-01-01T00:00:00Z") });
+  await page.clock.pauseAt(new Date("2026-01-01T00:00:00Z"));
+  await page.goto("/");
+  await page.getByRole("button", { name: "開始飛行" }).click();
+  await page.clock.runFor(3100);
+  const planeX = () =>
+    page.locator("canvas").evaluate((canvas: HTMLCanvasElement) => {
+      const { data } = canvas.getContext("2d")!.getImageData(0, 0, 800, 600);
+      let left = 800;
+      let right = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        if (data[i] === 237 && data[i + 1] === 243 && data[i + 2] === 239) {
+          const x = (i / 4) % 800;
+          left = Math.min(left, x);
+          right = Math.max(right, x);
+        }
+      }
+      return (left + right) / 2;
+    });
+  const control = page.locator("#joystick");
+  const box = (await control.boundingBox())!;
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  const radius = box.width * 0.38;
+  const start = await planeX();
+  await page.mouse.move(cx + radius * 0.5, cy);
+  await page.mouse.down();
+  await page.clock.runFor(250);
+  const slow = await planeX();
+  expect(slow - start).toBeGreaterThan(20);
+  expect(slow - start).toBeLessThan(30);
+  await page.mouse.move(cx + radius, cy);
+  await page.clock.runFor(250);
+  const full = await planeX();
+  expect(full - slow).toBeGreaterThan(55);
+  expect(full - slow).toBeLessThan(65);
+  await page.mouse.move(cx, cy);
+  await page.clock.runFor(250);
+  expect(Math.abs((await planeX()) - full)).toBeLessThanOrEqual(1);
+  await page.mouse.up();
+  await page.clock.runFor(250);
+  expect(Math.abs((await planeX()) - full)).toBeLessThanOrEqual(1);
+  const knob = (await control.locator("span").boundingBox())!;
+  expect(Math.abs(knob.x + knob.width / 2 - cx)).toBeLessThan(1);
+  expect(Math.abs(knob.y + knob.height / 2 - cy)).toBeLessThan(1);
+  await page.screenshot({ path: "test-results/joystick-centered.png" });
+});

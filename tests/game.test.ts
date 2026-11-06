@@ -411,24 +411,33 @@ test("mobile and desktop schedules cap counts and speeds independently and prese
   }
 });
 
-test("joystick leaves the dead zone at keyboard speed and stops immediately at center", async () => {
+test("joystick scales speed beyond the dead zone and stops immediately at center", async () => {
   const { joystickAxis } = await import("../src/joystick.ts");
   const game = createGame(true);
   startGame(game, []);
   assert.deepEqual(joystickAxis(15, 0, 100), { x: 0, y: 0 });
   game.axis = joystickAxis(16, 0, 100);
   advance(game, 0.25);
-  assert.equal(game.player.x, 460);
+  assert.ok(Math.abs(game.player.x - (400 + 60 / 85)) < 1e-10);
+  const slowX = game.player.x;
   game.axis = joystickAxis(100, 0, 100);
   advance(game, 0.25);
-  assert.equal(game.player.x, 520);
+  assert.ok(Math.abs(game.player.x - (slowX + 60)) < 1e-10);
   game.axis = joystickAxis(0, 0, 100);
+  const stoppedX = game.player.x;
   advance(game, 0.25);
-  assert.equal(game.player.x, 520);
-  assert.ok(
-    Math.abs(Math.hypot(...Object.values(joystickAxis(30, 30, 100))) - 1) <
-      1e-10,
-  );
+  assert.equal(game.player.x, stoppedX);
+  for (const [dx, dy] of [
+    [100, 0],
+    [-100, 0],
+    [0, 100],
+    [0, -100],
+    [200, 200],
+  ])
+    assert.ok(
+      Math.abs(Math.hypot(...Object.values(joystickAxis(dx, dy, 100))) - 1) <
+        1e-10,
+    );
 });
 
 test("pausing freezes the full simulation and clears both input sources", () => {
@@ -525,4 +534,11 @@ test("invalid transitions cannot reset an active round or revive a finished roun
   assert.equal(game.bulletSpeed, 40);
   assert.equal(game.bullets.length, 40);
   assert.equal(game.contact, null);
+});
+
+test("small joystick drags allow low speed instead of jumping to full speed", async () => {
+  const { joystickAxis } = await import("../src/joystick.ts");
+  const axis = joystickAxis(50, 0, 100);
+  assert.ok(axis.x > 0 && axis.x < 0.5);
+  assert.equal(axis.y, 0);
 });
