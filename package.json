@@ -15,7 +15,8 @@
     "test:e2e": "playwright test",
     "test": "npm run test:unit && npm run test:e2e",
     "build": "npm run typecheck && vite build",
-    "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort"
+    "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
+    "test:performance": "FLAK_PERFORMANCE=1 playwright test --project=chrome"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",

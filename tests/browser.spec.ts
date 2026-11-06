@@ -25,6 +25,7 @@ async function renderedPlane(page: Page) {
 
 test("keyboard starts a round, collision freezes the result and restart clears the round", async ({
   page,
+  browserName,
 }) => {
   await page.addInitScript(() => {
     Math.random = () => 0.5;
@@ -35,7 +36,7 @@ test("keyboard starts a round, collision freezes the result and restart clears t
   await page.clock.pauseAt(new Date("2026-01-01T00:00:00Z"));
   await page.goto("/");
   await expect(page.getByText("追蹤彈幕・生存挑戰")).toBeVisible();
-  await page.keyboard.press("Tab");
+  await page.keyboard.press(browserName === "webkit" ? "Alt+Tab" : "Tab");
   await expect(page.getByRole("button", { name: "開始飛行" })).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.locator("#phase-title")).toHaveText("倒數 3");

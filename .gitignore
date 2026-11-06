@@ -1,6 +1,7 @@
 node_modules/
 dist/
 test-results/
+performance-results/
 playwright-report/
 .env
 .env.*

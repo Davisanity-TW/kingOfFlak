@@ -10,6 +10,7 @@
 
 ```sh
 npm ci
+npx playwright install webkit
 npm run dev
 ```
 
@@ -86,3 +87,12 @@ git push origin main
 本機執行 `npm run dev`，開啟 http://127.0.0.1:5174/ 測試本輪版本。可按住方向鍵後按 Esc，確認秒數與彈幕凍結；繼續後鬆手應停在原位。手機橫放操作搖桿後轉直向，再轉回橫向，應先看到暫停畫面，主動繼續後才重新倒數。死亡後「再飛一次」應回到 0.0 秒與 40 顆開局。
 
 2026-11-06：24 項單元測試、10 項 Chrome 瀏覽器測試、型別檢查、格式檢查與正式建置通過。自動化測試涵蓋狀態及時間邊界；Chrome 手機模擬涵蓋旋轉與恢復後結算／重玩。瀏覽器測試採單一 worker，避免測試視窗互搶焦點觸發自動暫停。真實手機、Safari 與長時間效能驗收留待工單 05；工單 04 尚未發布至線上。
+
+
+## 工單 05：跨瀏覽器與效能測試
+
+`npm run test:e2e` 現在依序執行本機 Chrome 與 Playwright WebKit；執行前需依安裝步驟下載對應 WebKit。僅跑單一引擎可用 `npm run test:e2e -- --project=chrome` 或 `npm run test:e2e -- --project=webkit`。
+
+`npm run test:performance` 以真實時間執行約 10 分鐘的 Chrome 滿量／最高速壓測，結果寫入 `performance-results/`。測試攔截模組僅供壓測延長存活，不會打包進正式遊戲。請勿同時開另一輪瀏覽器測試，也避免測試期間睡眠或切換測試視窗。
+
+實機矩陣、環境版本、效能數字、操作證據與缺測項目記錄於 [工單 05 驗證紀錄](docs/task05-validation.md)。WebKit 模擬不等於 Safari 或 iPhone 實機驗收；使用者於 2026-11-06 確認工單 05 驗收通過；未提供的逐裝置驗收資料仍保留於紀錄。

@@ -4,10 +4,18 @@ export default defineConfig({
   // Concurrent browser windows would trigger the game's blur-to-pause behavior.
   workers: 1,
   testDir: "./tests",
-  testMatch: "*.spec.ts",
+  testMatch: process.env.FLAK_PERFORMANCE
+    ? "performance.spec.ts"
+    : "{browser,mobile}.spec.ts",
+  outputDir: process.env.FLAK_PERFORMANCE
+    ? "performance-results"
+    : "test-results",
+  projects: [
+    { name: "chrome", use: { browserName: "chromium", channel: "chrome" } },
+    { name: "webkit", use: { browserName: "webkit" } },
+  ],
   use: {
     baseURL: "http://127.0.0.1:5174",
-    channel: "chrome",
     viewport: { width: 1440, height: 1000 },
     screenshot: "only-on-failure",
   },

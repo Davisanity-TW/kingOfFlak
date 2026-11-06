@@ -115,3 +115,52 @@ test("touch controls can finish and restart a resumed round", async ({
   await expect(page.locator("#survival-time")).toHaveText("0.0");
   await expect(page.locator("#bullet-count")).toHaveText("40");
 });
+
+test("fullscreen rejection and pointer cancellation preserve playable mobile controls", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Math.random = () => 0;
+    Element.prototype.requestFullscreen = async () => {
+      throw new Error("Fullscreen unavailable");
+    };
+  });
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.clock.install();
+  await page.goto("/");
+  await page.getByRole("button", { name: "開始飛行" }).click();
+  await page.clock.runFor(3100);
+  await expect(page.locator("#phase-title")).toHaveText("飛行中");
+  const stick = page.locator("#joystick");
+  await stick.evaluate((button) =>
+    button.addEventListener(
+      "pointerdown",
+      (event) => {
+        button.dataset.pointer = String((event as PointerEvent).pointerId);
+      },
+      { once: true },
+    ),
+  );
+  const box = (await stick.boundingBox())!;
+  await page.mouse.move(box.x + box.width * 0.8, box.y + box.height / 2);
+  await page.mouse.down();
+  await expect(stick.locator("span")).not.toHaveCSS(
+    "transform",
+    "matrix(1, 0, 0, 1, 0, 0)",
+  );
+  await stick.evaluate((button) =>
+    button.dispatchEvent(
+      new PointerEvent("pointercancel", {
+        pointerId: Number(button.dataset.pointer),
+        bubbles: true,
+      }),
+    ),
+  );
+  await page.mouse.up();
+  await expect(stick.locator("span")).toHaveCSS(
+    "transform",
+    "matrix(1, 0, 0, 1, 0, 0)",
+  );
+  expect(errors).toEqual([]);
+});
