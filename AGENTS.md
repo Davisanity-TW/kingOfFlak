@@ -4,6 +4,10 @@
 
 在此專案新增或修改任何文件、程式註解或 Git commit 訊息前，必須讀取並遵循 [專案語言規範](skills/project-language/SKILL.md)。本指引適用於專案根目錄與所有子目錄。
 
+## 產品介面示意與動畫
+
+製作產品介面示意圖、操作展示動畫、首頁主視覺或功能展示卡片時，必須讀取並遵循 [Stageshow](skills/stageshow/SKILL.md)。此技能適用於整個專案；範例、React 元件與檢查腳本均位於 `skills/stageshow/`。第三方套件保留上游原文，來源為 [benjitaylor/skills](https://github.com/benjitaylor/skills/tree/main/stageshow)。
+
 ## 專案結構與模組組織
 
 此工作區目前尚無原始碼、測試、素材或建置設定。加入初始實作時，請在 `README.md` 記錄選用的語言、框架、進入點與目錄結構。

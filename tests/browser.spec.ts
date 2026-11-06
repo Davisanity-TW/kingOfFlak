@@ -164,3 +164,23 @@ test("the playable barrage grows at five seconds and the result keeps the actual
   await page.getByRole("button", { name: "再飛一次" }).click();
   await expect(page.locator("#bullet-count")).toHaveText("40");
 });
+
+test("ready screen keeps its primary action inside the arena at narrow and wide sizes", async ({
+  page,
+}) => {
+  await page.goto("/");
+  for (const width of [390, 640, 900, 1440]) {
+    await page.setViewportSize({ width, height: 1000 });
+    const arena = (await page.locator(".arena").boundingBox())!;
+    const action = (await page.locator("#start-button").boundingBox())!;
+    expect(action.x).toBeGreaterThanOrEqual(arena.x);
+    expect(action.y).toBeGreaterThanOrEqual(arena.y);
+    expect(action.x + action.width).toBeLessThanOrEqual(arena.x + arena.width);
+    expect(action.y + action.height).toBeLessThanOrEqual(
+      arena.y + arena.height,
+    );
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(width);
+  }
+});
