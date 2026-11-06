@@ -123,4 +123,4 @@ git push origin main
 
 本機先 `npm run api:migrate:local`，以 `npm run api:dev` 啟動服務；另一終端以 `VITE_LEADERBOARD_URL=http://127.0.0.1:8787 npm run dev` 啟動遊戲。若 5174 已有舊開發伺服器，先停止再啟動，或將 `.env.example` 複製為未追蹤的 `.env.local`。未設定 API 時，結算會明示本局未上傳。
 
-開啟 [本機遊戲](http://127.0.0.1:5174/)，先測試空白暱稱查看與返回，再完成一局查看本局摘要、入榜標記及重玩。手機橫放確認視窗與表格可捲動，返回和再飛一次可到達；關閉 API 後重讀應清空表格並提示錯誤。追加驗證見 [彈出視窗驗證](docs/task09-popup-validation.md)，原側欄紀錄保留於 [工單 09 驗證](docs/task09-validation.md)。本輪尚未推送或發布；正式網址仍為工單 08 的 `8e72e13`。
+開啟 [本機遊戲](http://127.0.0.1:5174/)，先測試空白暱稱查看與返回，再完成一局查看本局摘要、入榜標記及重玩。手機橫放確認視窗與表格可捲動，返回和再飛一次可到達；關閉 API 後重讀應清空表格並提示錯誤。追加驗證見 [彈出視窗驗證](docs/task09-popup-validation.md)，原側欄紀錄保留於 [工單 09 驗證](docs/task09-validation.md)。2026-11-06 正式發布本輪功能（程式提交 `b151ba1`），Worker 與資料保留遷移同步更新；正式網址的 `version.txt` 可確認 Pages 部署提交。實機玩家驗收仍待完成。

@@ -43,4 +43,4 @@ API 測試涵蓋新增／同局競爭、同分排序、50 筆上限、榜外提�
 
 原側欄 58 項結果只屬歷史版本，見 [原驗證](task09-validation.md)。
 
-本輪未推送／部署；正式網站仍為工單 08。真實 Windows Chrome、macOS Chrome／Safari、iPhone Safari 與正式發布後雙瀏覽器驗收待使用者執行；Playwright WebKit 與觸控模擬不代表實機 Safari。未重跑工單 05 的長時間效能壓測。
+2026-11-06 正式發布本輪功能（程式提交 `b151ba1`）；正式 D1 已套用 `0002_keep_top_fifty.sql`，遷移前只有 1 筆成績，原資料保留。Worker 版本為 `8e5bef15-5c91-4dab-96f8-804bbdc6d17b`；前端由 GitHub Pages 工作流程建置部署，實際提交以線上 `version.txt` 為準。正式環境僅執行唯讀檢查與拒絕來源檢查，不灌入測試成績。真實 Windows Chrome、macOS Chrome／Safari、iPhone Safari 與正式發布後雙瀏覽器驗收待使用者執行；Playwright WebKit 與觸控模擬不代表實機 Safari。未重跑工單 05 的長時間效能壓測。
