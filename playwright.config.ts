@@ -1,6 +1,8 @@
 import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
+  // Concurrent browser windows would trigger the game's blur-to-pause behavior.
+  workers: 1,
   testDir: "./tests",
   testMatch: "*.spec.ts",
   use: {

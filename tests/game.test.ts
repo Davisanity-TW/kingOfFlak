@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   beginCountdown,
+  pauseGame,
+  resumeGame,
   createGame,
   startGame,
   setKey,
@@ -395,6 +397,15 @@ test("mobile and desktop schedules cap counts and speeds independently and prese
         Math.min(240, 40 + Math.floor(second / 5) * 10),
       );
     }
+    pauseGame(game);
+    const full = structuredClone(game);
+    advance(game, 600);
+    assert.deepEqual(game, full);
+    resumeGame(game);
+    advance(game, 3);
+    assert.equal(game.bullets.length, 160);
+    assert.equal(game.bulletSpeed, 240);
+    assert.equal(game.elapsed, 105);
     startGame(game);
     assert.equal(game.bullets.length, 40);
   }
@@ -418,4 +429,100 @@ test("joystick leaves the dead zone at keyboard speed and stops immediately at c
     Math.abs(Math.hypot(...Object.values(joystickAxis(30, 30, 100))) - 1) <
       1e-10,
   );
+});
+
+test("pausing freezes the full simulation and clears both input sources", () => {
+  for (const mobile of [false, true]) {
+    const game = createGame(mobile);
+    beginCountdown(game, () => 0);
+    advance(game, 3.5);
+    setKey(game, "ArrowRight", true);
+    game.axis = { x: 1, y: 1 };
+    pauseGame(game);
+    assert.equal(game.phase, "paused");
+    assert.equal(game.keys.size, 0);
+    assert.deepEqual(game.axis, { x: 0, y: 0 });
+    const frozen = structuredClone(game);
+    advance(game, 600);
+    setKey(game, "ArrowRight", true);
+    assert.deepEqual(game, frozen);
+    resumeGame(game);
+    const position = { ...game.player };
+    const bullets = structuredClone(game.bullets);
+    advance(game, 2.999);
+    assert.equal(game.elapsed, frozen.elapsed);
+    assert.deepEqual(game.bullets, bullets);
+    pauseGame(game);
+    resumeGame(game);
+    assert.equal(game.countdown, 3);
+    advance(game, 3);
+    assert.equal(game.phase, "playing");
+    assert.deepEqual(game.player, position);
+    assert.equal(game.elapsed, frozen.elapsed);
+    advance(game, 0.1);
+    assert.deepEqual(game.player, position);
+  }
+});
+
+test("pause and resume preserve scheduled boundaries exactly once in both modes", () => {
+  for (const mobile of [false, true]) {
+    const game = createGame(mobile);
+    beginCountdown(game, () => 0);
+    advance(game, 3);
+    for (const boundary of [5, 10]) {
+      for (const bullet of game.bullets)
+        Object.assign(bullet, { x: 2, y: 2, vx: 0, vy: 0 });
+      advance(game, boundary - game.elapsed - 0.01, () => 0);
+      const count = game.bullets.length;
+      const speed = game.bulletSpeed;
+      pauseGame(game);
+      advance(game, 60);
+      resumeGame(game);
+      advance(game, 3);
+      assert.equal(game.bullets.length, count);
+      assert.equal(game.bulletSpeed, speed);
+      advance(game, 0.01, () => 0);
+      assert.equal(game.bullets.length, count + (mobile ? 10 : 20));
+      assert.equal(game.bulletSpeed, speed + 10);
+      pauseGame(game);
+      resumeGame(game);
+      advance(game, 3);
+      advance(game, 0.01, () => 0);
+      assert.equal(game.bullets.length, count + (mobile ? 10 : 20));
+      assert.equal(game.bulletSpeed, speed + 10);
+    }
+  }
+});
+
+test("invalid transitions cannot reset an active round or revive a finished round", () => {
+  const game = createGame();
+  const ready = structuredClone(game);
+  pauseGame(game);
+  resumeGame(game);
+  assert.deepEqual(game, ready);
+  beginCountdown(game, () => 0);
+  advance(game, 1);
+  const opening = structuredClone(game);
+  beginCountdown(game);
+  resumeGame(game);
+  assert.deepEqual(game, opening);
+  pauseGame(game);
+  resumeGame(game);
+  advance(game, 3);
+  game.bullets[0] = { ...game.player, vx: 0, vy: 0 };
+  advance(game, 0.1);
+  assert.equal(game.phase, "over");
+  const over = structuredClone(game);
+  pauseGame(game);
+  resumeGame(game);
+  advance(game, 100);
+  assert.deepEqual(game, over);
+  beginCountdown(game, () => 0);
+  assert.equal(game.phase, "countdown");
+  assert.equal(game.countdown, 3);
+  assert.equal(game.elapsed, 0);
+  assert.equal(game.nextTick, 1);
+  assert.equal(game.bulletSpeed, 40);
+  assert.equal(game.bullets.length, 40);
+  assert.equal(game.contact, null);
 });

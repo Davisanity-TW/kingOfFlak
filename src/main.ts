@@ -7,6 +7,8 @@ import {
   createGame,
   HEIGHT,
   PLANE,
+  pauseGame,
+  resumeGame,
   setKey,
   WIDTH,
 } from "./game.ts";
@@ -23,6 +25,11 @@ const phaseTitle = document.querySelector<HTMLElement>("#phase-title")!;
 const time = document.querySelector<HTMLElement>("#survival-time")!;
 const count = document.querySelector<HTMLElement>("#bullet-count")!;
 const note = document.querySelector<HTMLElement>("#flight-note")!;
+const pauseButton = document.querySelector<HTMLButtonElement>("#pause-button")!;
+const resumeButton =
+  document.querySelector<HTMLButtonElement>("#resume-button")!;
+const pauseOverlay = document.querySelector<HTMLElement>("#pause-overlay")!;
+const portrait = matchMedia("(pointer: coarse) and (orientation: portrait)");
 const game = createGame(matchMedia("(pointer: coarse)").matches);
 let lastTime = performance.now();
 let frame: number | undefined;
@@ -86,13 +93,18 @@ function draw(): void {
   }
   time.textContent = game.elapsed.toFixed(1);
   count.textContent = String(game.bullets.length);
+  pauseOverlay.hidden = game.phase !== "paused";
+  pauseButton.hidden = game.phase !== "playing" && game.phase !== "countdown";
 }
 
 function tick(now: number): void {
+  frame = undefined;
+  if (!["playing", "countdown"].includes(game.phase)) return;
   advance(game, Math.max(0, now - lastTime) / 1000);
   lastTime = Math.max(lastTime, now);
   draw();
   if (game.phase === "over") {
+    resetStick();
     phaseTitle.textContent = "飛行結束";
     note.textContent = "圓圈標示致命接觸位置。準備好再挑戰了嗎？";
     restartButton.hidden = false;
@@ -110,7 +122,11 @@ function tick(now: number): void {
 }
 
 function begin(): void {
-  if (matchMedia("(pointer: coarse) and (orientation: portrait)").matches)
+  if (
+    portrait.matches ||
+    document.hidden ||
+    (game.phase !== "ready" && game.phase !== "over")
+  )
     return;
   resetStick();
   if (frame !== undefined) cancelAnimationFrame(frame);
@@ -124,6 +140,42 @@ function begin(): void {
   draw();
   frame = requestAnimationFrame(tick);
 }
+
+function pause(): void {
+  if (game.phase !== "playing" && game.phase !== "countdown") return;
+  pauseGame(game);
+  resetStick();
+  if (frame !== undefined) cancelAnimationFrame(frame);
+  frame = undefined;
+  phaseTitle.textContent = "已暫停";
+  note.textContent = "飛行已凍結，按繼續後倒數 3 秒恢復。";
+  draw();
+  if (!document.hidden && !portrait.matches)
+    resumeButton.focus({ preventScroll: true });
+}
+
+resumeButton.addEventListener("click", () => {
+  if (game.phase !== "paused" || portrait.matches || document.hidden) return;
+  resetStick();
+  resumeGame(game);
+  phaseTitle.textContent = "倒數 3";
+  note.textContent = "倒數結束後繼續閃避。";
+  canvas.focus({ preventScroll: true });
+  lastTime = performance.now();
+  draw();
+  frame = requestAnimationFrame(tick);
+});
+pauseButton.addEventListener("click", pause);
+window.addEventListener("blur", pause);
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) pause();
+});
+portrait.addEventListener("change", () => {
+  if (portrait.matches) pause();
+});
+window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !event.repeat) pause();
+});
 
 startButton.addEventListener("click", begin);
 restartButton.addEventListener("click", begin);
@@ -164,6 +216,7 @@ joystick.addEventListener("pointerdown", (event) => {
   if (activePointer !== undefined || !event.isPrimary) return;
   event.preventDefault();
   if (game.phase === "ready") begin();
+  if (game.phase !== "playing") return;
   activePointer = event.pointerId;
   joystick.setPointerCapture(activePointer);
   updateStick(event);

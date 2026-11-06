@@ -70,6 +70,17 @@
                 <small>方向鍵或右側搖桿操作</small>
               </div>
             </div>
+            <div class="start-overlay" id="pause-overlay" hidden>
+              <div class="start-card">
+                <p class="eyebrow">空域已凍結</p>
+                <h2>休息一下，再出發。</h2>
+                <p>
+                  飛機、彈幕與時間都已暫停。<br />繼續後倒數 3
+                  秒，回到原來的位置。
+                </p>
+                <button id="resume-button" type="button">繼續飛行</button>
+              </div>
+            </div>
           </div>
           <div class="portrait-prompt" role="status">
             請將裝置橫放以開始飛行
@@ -94,6 +105,9 @@
               <div><strong id="bullet-count">0</strong><span>顆</span></div>
             </div>
             <p id="flight-note">按下開始，先看 3、2、1 倒數。</p>
+            <button id="pause-button" type="button" hidden>
+              暫停飛行 <span aria-hidden="true">Esc</span>
+            </button>
             <button id="restart-button" type="button" hidden>
               再飛一次 <span aria-hidden="true">↗</span>
             </button>

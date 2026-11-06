@@ -200,7 +200,8 @@ canvas:focus {
   color: var(--muted);
   margin: 0;
 }
-#restart-button {
+#restart-button,
+#pause-button {
   width: 100%;
   margin-top: 18px;
 }
@@ -409,7 +410,8 @@ kbd {
   #flight-note {
     display: none;
   }
-  #restart-button {
+  #restart-button,
+  #pause-button {
     margin-top: 5px;
     padding: 8px;
   }

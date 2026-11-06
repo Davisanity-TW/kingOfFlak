@@ -56,9 +56,15 @@ test("keyboard starts a round, collision freezes the result and restart clears t
   const result = await page.locator("#survival-time").textContent();
   expect(result).not.toBe("0.0");
   await expect(page.getByRole("button", { name: "再飛一次" })).toBeFocused();
-  const frozen = await page.locator("canvas").screenshot();
+  const frozen = await page
+    .locator("canvas")
+    .evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL());
   await page.clock.runFor(3000);
-  expect(await page.locator("canvas").screenshot()).toEqual(frozen);
+  expect(
+    await page
+      .locator("canvas")
+      .evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL()),
+  ).toBe(frozen);
   await expect(page.locator("#survival-time")).toHaveText(result!);
   await page.screenshot({ path: "test-results/desktop-result.png" });
   await page.keyboard.press("Enter");
@@ -183,4 +189,82 @@ test("ready screen keeps its primary action inside the arena at narrow and wide 
       await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBeLessThanOrEqual(width);
   }
+});
+
+test("pause freezes play, resume counts down and interrupted countdown starts again", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Math.random = () => 0;
+  });
+  await page.clock.install();
+  await page.goto("/");
+  await page.getByRole("button", { name: "開始飛行" }).click();
+  await page.clock.runFor(3400);
+  await page.keyboard.down("ArrowRight");
+  await page.clock.runFor(100);
+  await page.keyboard.press("Escape");
+  await page.keyboard.up("ArrowRight");
+  await expect(page.locator("#phase-title")).toHaveText("已暫停");
+  const elapsed = await page.locator("#survival-time").textContent();
+  const frozen = await page
+    .locator("canvas")
+    .evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL());
+  await page.clock.runFor(60000);
+  expect(
+    await page
+      .locator("canvas")
+      .evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL()),
+  ).toBe(frozen);
+  await expect(page.locator("#survival-time")).toHaveText(elapsed!);
+  await expect(page.locator("#resume-button")).toBeFocused();
+  await page.getByRole("button", { name: "繼續飛行" }).click();
+  await page.clock.runFor(1000);
+  await expect(page.locator("#phase-title")).toHaveText("倒數 2");
+  await expect(page.locator("#survival-time")).toHaveText(elapsed!);
+  await page.evaluate(() => window.dispatchEvent(new Event("blur")));
+  await expect(page.locator("#phase-title")).toHaveText("已暫停");
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await page.clock.runFor(10000);
+  await expect(page.locator("#phase-title")).toHaveText("已暫停");
+  await page.getByRole("button", { name: "繼續飛行" }).click();
+  await expect(page.locator("#phase-title")).toHaveText("倒數 3");
+  await page.clock.runFor(3050);
+  await expect(page.locator("#phase-title")).toHaveText("飛行中");
+  const before = await renderedPlane(page);
+  await page.clock.runFor(100);
+  expect(await renderedPlane(page)).toEqual(before);
+  await page.getByRole("button", { name: "暫停飛行" }).click();
+  await page.screenshot({ path: "test-results/desktop-paused.png" });
+  await expect(page.locator("#phase-title")).toHaveText("已暫停");
+});
+
+test("hidden page pauses the opening countdown until an explicit resume", async ({
+  page,
+}) => {
+  await page.clock.install();
+  await page.goto("/");
+  await page.getByRole("button", { name: "開始飛行" }).click();
+  await page.clock.runFor(1000);
+  await page.evaluate(() => {
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      value: true,
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await expect(page.locator("#phase-title")).toHaveText("已暫停");
+  await page.clock.runFor(60000);
+  await page.evaluate(() => {
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      value: false,
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await expect(page.locator("#phase-title")).toHaveText("已暫停");
+  await page.getByRole("button", { name: "繼續飛行" }).click();
+  await page.clock.runFor(2000);
+  await expect(page.locator("#phase-title")).toHaveText("倒數 1");
+  await expect(page.locator("#survival-time")).toHaveText("0.0");
 });

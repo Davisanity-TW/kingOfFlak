@@ -4,7 +4,7 @@ export type Point = { x: number; y: number };
 export type Bullet = Point & { vx: number; vy: number };
 export type Game = {
   mobile: boolean;
-  phase: "ready" | "countdown" | "playing" | "over";
+  phase: "ready" | "countdown" | "playing" | "paused" | "over";
   player: Point;
   startPosition: Point;
   bullets: Bullet[];
@@ -130,11 +130,28 @@ export function beginCountdown(
   game: Game,
   random: () => number = Math.random,
 ): void {
+  if (game.phase !== "ready" && game.phase !== "over") return;
   Object.assign(game, createGame(game.mobile), {
     phase: "countdown",
     countdown: 3,
   });
   spawnBullets(game, 40, random);
+}
+
+export function pauseGame(game: Game): void {
+  if (game.phase !== "playing" && game.phase !== "countdown") return;
+  game.phase = "paused";
+  game.countdown = 0;
+  game.keys.clear();
+  game.axis = { x: 0, y: 0 };
+}
+
+export function resumeGame(game: Game): void {
+  if (game.phase !== "paused") return;
+  game.keys.clear();
+  game.axis = { x: 0, y: 0 };
+  game.countdown = 3;
+  game.phase = "countdown";
 }
 
 export function setKey(game: Game, key: string, pressed: boolean): void {
