@@ -295,6 +295,23 @@ test(
                   ),
               );
             assert.deepEqual(boards[0], boards[1]);
+            const rendered = [];
+            for (const context of [desktop, mobile]) {
+              const page = context.pages()[0];
+              await page.waitForFunction(
+                () =>
+                  !document.querySelector<HTMLButtonElement>("#reload-board")!
+                    .disabled,
+              );
+              await page.getByRole("button", { name: "重新讀榜" }).click();
+              await page.waitForFunction(
+                () => document.querySelectorAll("#board-rows tr").length === 4,
+              );
+              rendered.push(await page.locator("#board-rows").textContent());
+            }
+            assert.equal(rendered[0], rendered[1]);
+            assert.ok(rendered[0]!.includes("雙裝置_pc"));
+            assert.ok(rendered[0]!.includes("雙裝置_mb"));
             assert.equal(
               boards[0].filter((row: RankedScore) => row.nickname === "雙裝置")
                 .length,

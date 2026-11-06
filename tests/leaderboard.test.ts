@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseScore, toScoreTenths } from "../src/leaderboard.ts";
+import { formatTaipei, parseScore, toScoreTenths } from "../src/leaderboard.ts";
 
 const valid = {
   roundId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -41,4 +41,8 @@ test("the server contract validates originals, UUIDs, modes and exact safe integ
     parseScore({ ...valid, scoreTenths: Number.MAX_SAFE_INTEGER })?.scoreTenths,
     Number.MAX_SAFE_INTEGER,
   );
+});
+
+test("dates cross midnight in Taipei regardless of viewer timezone", () => {
+  assert.equal(formatTaipei("2026-01-01T16:01:00.000Z"), "2026/01/02 00:01");
 });

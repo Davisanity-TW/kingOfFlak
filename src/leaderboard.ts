@@ -45,6 +45,28 @@ export function parseScore(value: unknown): Score | null {
       });
 }
 
+export class ServiceError extends Error {
+  status: number;
+  constructor(status: number) {
+    super(`Service returned ${status}`);
+    this.status = status;
+  }
+}
+
+export function formatTaipei(value: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Taipei",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(value));
+  const get = (type: string) => parts.find((part) => part.type === type)!.value;
+  return `${get("year")}/${get("month")}/${get("day")} ${get("hour")}:${get("minute")}`;
+}
+
 export async function submitScore(
   score: Score,
   base: string,
@@ -55,8 +77,7 @@ export async function submitScore(
     body: JSON.stringify(score),
     signal: AbortSignal.timeout(5000),
   });
-  if (!response.ok)
-    throw new Error(`Score submission failed: ${response.status}`);
+  if (!response.ok) throw new ServiceError(response.status);
   return response.json();
 }
 
@@ -65,7 +86,25 @@ export async function readLeaderboard(base: string): Promise<RankedScore[]> {
     cache: "no-store",
     signal: AbortSignal.timeout(5000),
   });
-  if (!response.ok)
-    throw new Error(`Leaderboard unavailable: ${response.status}`);
-  return response.json();
+  if (!response.ok) throw new ServiceError(response.status);
+  let rows: unknown;
+  try {
+    rows = await response.json();
+  } catch {
+    throw new ServiceError(502);
+  }
+  if (!Array.isArray(rows)) throw new ServiceError(502);
+  return rows.slice(0, 20).map((row) => {
+    if (!row || typeof row !== "object") throw new ServiceError(502);
+    const { roundId, nickname, mode, scoreTenths, id, receivedAt } = row;
+    const score = parseScore({ roundId, nickname, mode, scoreTenths });
+    if (
+      !score ||
+      typeof id !== "string" ||
+      typeof receivedAt !== "string" ||
+      !Number.isFinite(Date.parse(receivedAt))
+    )
+      throw new ServiceError(502);
+    return { ...score, id, receivedAt };
+  });
 }

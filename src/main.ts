@@ -1,5 +1,6 @@
 import "./style.css";
-import { submitScore, toScoreTenths } from "./leaderboard.ts";
+import { toScoreTenths } from "./leaderboard.ts";
+import { resultBoard } from "./result-board.ts";
 import { joystickAxis } from "./joystick.ts";
 import {
   createRoundIdentity,
@@ -48,10 +49,7 @@ const cancelEdit = document.querySelector<HTMLButtonElement>("#cancel-edit")!;
 let roundId = "";
 const leaderboardUrl = import.meta.env.VITE_LEADERBOARD_URL as
   string | undefined;
-if (leaderboardUrl) {
-  document.querySelector<HTMLElement>(".public-note")!.textContent =
-    "暱稱與成績將公開顯示；排行榜介面建置中。";
-}
+const board = resultBoard(leaderboardUrl);
 let roundIdentity: ReturnType<typeof createRoundIdentity> = null;
 try {
   nicknameInput.value = readSavedNickname(
@@ -153,15 +151,14 @@ function tick(now: number): void {
   lastTime = Math.max(lastTime, now);
   draw();
   if (game.phase === "over") {
-    if (leaderboardUrl && roundIdentity) {
+    if (roundIdentity) {
       const score = Object.freeze({
         roundId,
         nickname: roundIdentity.nickname,
         mode: roundIdentity.mobile ? ("mb" as const) : ("pc" as const),
         scoreTenths: toScoreTenths(game.elapsed),
       });
-      // Task 09 will present submission and leaderboard states without blocking replay.
-      void submitScore(score, leaderboardUrl).catch(() => {});
+      board.finish(score);
     }
     resetStick();
     phaseTitle.textContent = "飛行結束";
@@ -198,6 +195,7 @@ function begin(): void {
     nicknameInput.focus({ preventScroll: true });
     return;
   }
+  board.clear();
   roundIdentity = identity;
   roundId = crypto.randomUUID();
   nicknameInput.value = identity.nickname;
@@ -275,6 +273,7 @@ document
 restartButton.addEventListener("click", begin);
 editButton.addEventListener("click", () => {
   if (game.phase !== "over") return;
+  board.clear();
   startOverlay.hidden = false;
   startButton.textContent = "確認並起飛";
   cancelEdit.hidden = false;
