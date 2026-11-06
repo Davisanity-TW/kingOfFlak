@@ -1,4 +1,5 @@
 import "./style.css";
+import { submitScore, toScoreTenths } from "./leaderboard.ts";
 import { joystickAxis } from "./joystick.ts";
 import {
   createRoundIdentity,
@@ -44,6 +45,13 @@ const storageNote = document.querySelector<HTMLElement>("#storage-note")!;
 const roundPilot = document.querySelector<HTMLElement>("#round-pilot")!;
 const editButton = document.querySelector<HTMLButtonElement>("#edit-nickname")!;
 const cancelEdit = document.querySelector<HTMLButtonElement>("#cancel-edit")!;
+let roundId = "";
+const leaderboardUrl = import.meta.env.VITE_LEADERBOARD_URL as
+  string | undefined;
+if (leaderboardUrl) {
+  document.querySelector<HTMLElement>(".public-note")!.textContent =
+    "暱稱與成績將公開顯示；排行榜介面建置中。";
+}
 let roundIdentity: ReturnType<typeof createRoundIdentity> = null;
 try {
   nicknameInput.value = readSavedNickname(
@@ -132,7 +140,7 @@ function draw(): void {
     ctx.textBaseline = "middle";
     ctx.fillText(String(Math.ceil(game.countdown)), WIDTH / 2, HEIGHT / 2);
   }
-  time.textContent = game.elapsed.toFixed(1);
+  time.textContent = (toScoreTenths(game.elapsed) / 10).toFixed(1);
   count.textContent = String(game.bullets.length);
   pauseOverlay.hidden = game.phase !== "paused";
   pauseButton.hidden = game.phase !== "playing" && game.phase !== "countdown";
@@ -145,6 +153,16 @@ function tick(now: number): void {
   lastTime = Math.max(lastTime, now);
   draw();
   if (game.phase === "over") {
+    if (leaderboardUrl && roundIdentity) {
+      const score = Object.freeze({
+        roundId,
+        nickname: roundIdentity.nickname,
+        mode: roundIdentity.mobile ? ("mb" as const) : ("pc" as const),
+        scoreTenths: toScoreTenths(game.elapsed),
+      });
+      // Task 09 will present submission and leaderboard states without blocking replay.
+      void submitScore(score, leaderboardUrl).catch(() => {});
+    }
     resetStick();
     phaseTitle.textContent = "飛行結束";
     note.textContent = "圓圈標示致命接觸位置。準備好再挑戰了嗎？";
@@ -181,6 +199,7 @@ function begin(): void {
     return;
   }
   roundIdentity = identity;
+  roundId = crypto.randomUUID();
   nicknameInput.value = identity.nickname;
   try {
     localStorage.setItem(

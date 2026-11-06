@@ -8,3 +8,6 @@ playwright-report/
 !.env.example
 *.local
 .DS_Store
+
+.wrangler/
+.dev.vars*

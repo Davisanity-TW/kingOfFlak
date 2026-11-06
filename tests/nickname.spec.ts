@@ -157,6 +157,7 @@ test.describe("mobile nickname entry", () => {
     );
     await expect(page.locator("#phase-title")).toHaveText("倒數 3");
     await page.setViewportSize({ width: 360, height: 640 });
+    await expect(page.locator("#phase-title")).toHaveText("已暫停");
     await expect(page.locator("#round-pilot")).toHaveText("Ace_mb_mb");
     await page.setViewportSize({ width: 640, height: 360 });
     await page.getByRole("button", { name: "繼續飛行" }).click();
