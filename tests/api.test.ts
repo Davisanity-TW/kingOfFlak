@@ -45,11 +45,30 @@ test("D1 schema resolves equal score and full timestamp ties by stable ID", () =
   assert.deepEqual(
     db
       .prepare(
-        "SELECT id FROM scores ORDER BY score_tenths DESC,received_at ASC,id ASC LIMIT 20",
+        "SELECT id FROM scores ORDER BY score_tenths DESC,received_at ASC,id ASC LIMIT 50",
       )
       .all()
       .map((row) => row.id),
     ["a", "c", "b"],
+  );
+  for (let i = 0; i < 60; i++)
+    insert.run(
+      `extra${i}`,
+      `extra${i}`,
+      "Same",
+      "pc",
+      i,
+      "2026-01-02T00:00:00.000Z",
+    );
+  db.exec(readFileSync("server/migrations/0002_keep_top_fifty.sql", "utf8"));
+  assert.equal(
+    db.prepare("SELECT COUNT(*) AS count FROM scores").get()!.count,
+    50,
+  );
+  assert.equal(
+    db.prepare("SELECT MIN(score_tenths) AS minimum FROM scores").get()!
+      .minimum,
+    13,
   );
   db.close();
 });
@@ -303,13 +322,19 @@ test(
                   !document.querySelector<HTMLButtonElement>("#reload-board")!
                     .disabled,
               );
+              await page.locator("#result-board").click();
               await page.getByRole("button", { name: "重新讀榜" }).click();
               await page.waitForFunction(
                 () => document.querySelectorAll("#board-rows tr").length === 4,
               );
+              assert.equal(await page.locator("tr.current-round").count(), 1);
+              assert.equal(await page.locator("#new-record").isVisible(), true);
               rendered.push(await page.locator("#board-rows").textContent());
             }
-            assert.equal(rendered[0], rendered[1]);
+            assert.equal(
+              rendered[0]!.replace(" · 本局 · 新入榜", ""),
+              rendered[1]!.replace(" · 本局 · 新入榜", ""),
+            );
             assert.ok(rendered[0]!.includes("雙裝置_pc"));
             assert.ok(rendered[0]!.includes("雙裝置_mb"));
             assert.equal(
@@ -325,19 +350,19 @@ test(
         },
       );
       await t.test(
-        "ranking returns exactly twenty independent rows ordered by tenths then server time and ID",
+        "ranking returns exactly fifty independent rows ordered by tenths then server time and ID",
         { skip: Boolean(remote) },
         async () => {
-          for (let i = 0; i < 22; i++)
+          for (let i = 0; i < 52; i++)
             assert.equal(
               (await post(score({ scoreTenths: 1000 + i }))).status,
               201,
             );
           const board = await list();
-          assert.equal(board.length, 20);
+          assert.equal(board.length, 50);
           assert.deepEqual(
             board.map((r) => r.scoreTenths),
-            Array.from({ length: 20 }, (_, i) => 1021 - i),
+            Array.from({ length: 50 }, (_, i) => 1051 - i),
           );
           assert.ok(
             board.every(
@@ -350,6 +375,37 @@ test(
             201,
           );
           assert.equal((await list())[0].scoreTenths, Number.MAX_SAFE_INTEGER);
+          const before = await list();
+          for (const body of [
+            score({ scoreTenths: 0 }),
+            score({ scoreTenths: before.at(-1)!.scoreTenths }),
+          ]) {
+            const response = await post(body);
+            assert.equal(response.status, 200);
+            assert.deepEqual(await response.json(), { stored: false });
+          }
+          assert.deepEqual(await list(), before);
+          const stored = JSON.parse(
+            execFileSync(
+              process.execPath,
+              [
+                cli,
+                "d1",
+                "execute",
+                "king-of-flak-scores-local",
+                "--local",
+                "--env",
+                "local",
+                "--persist-to",
+                state,
+                "--command",
+                "SELECT COUNT(*) AS count FROM scores",
+                "--json",
+              ],
+              { env, encoding: "utf8" },
+            ),
+          );
+          assert.equal(stored[0].results[0].count, 50);
         },
       );
       await t.test(
@@ -357,10 +413,13 @@ test(
         { skip: Boolean(remote) },
         async () => {
           const ip = crypto.randomUUID();
-          const original = score();
+          const original = score({ scoreTenths: 2000 });
           assert.equal((await post(original, ip)).status, 201);
           for (let i = 1; i < 20; i++)
-            assert.equal((await post(score(), ip)).status, 201);
+            assert.equal(
+              (await post(score({ scoreTenths: 2000 }), ip)).status,
+              201,
+            );
           const rejected = await post(score(), ip);
           assert.equal(rejected.status, 429);
           assert.ok(Number(rejected.headers.get("Retry-After")) > 0);

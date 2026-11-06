@@ -647,10 +647,66 @@ kbd {
   opacity: 0.5;
   cursor: wait;
 }
-@media (pointer: coarse) and (orientation: landscape) {
-  .sidebar:has(#leaderboard:not([hidden])) {
-    max-height: calc(100dvh - 52px);
-    overflow-y: auto;
-    touch-action: pan-y;
+
+#leaderboard {
+  width: min(680px, calc(100vw - 32px));
+  max-height: calc(100dvh - 24px);
+  margin: auto;
+  padding: 24px;
+  color: #eceee9;
+  background: #17251f;
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  overflow-y: auto;
+  touch-action: pan-y;
+}
+#leaderboard::backdrop {
+  background: #050d0bd9;
+}
+.board-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+.board-actions button {
+  flex: 1;
+  min-height: 44px;
+}
+#entry-board,
+#result-board {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 8px;
+}
+#round-summary {
+  padding: 12px;
+  border: 1px solid var(--line);
+}
+#leaderboard tr.current-round {
+  background: #34482b;
+  color: #f3ffd9;
+  font-weight: 700;
+}
+@media (max-height: 500px) {
+  .board-scroll {
+    max-height: 140px;
+  }
+}
+
+#new-record {
+  margin: 0 0 8px;
+  color: #ff6b6b;
+  font-size: 11px;
+  letter-spacing: 1px;
+  animation: record-blink 1.6s ease-in-out infinite;
+}
+@keyframes record-blink {
+  50% {
+    opacity: 0.3;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #new-record {
+    animation: none;
   }
 }

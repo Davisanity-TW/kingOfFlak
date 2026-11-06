@@ -179,6 +179,7 @@ function tick(now: number): void {
 }
 
 function begin(): void {
+  if (board.isOpen()) return;
   if (
     portrait.matches ||
     document.hidden ||
@@ -261,7 +262,7 @@ portrait.addEventListener("change", () => {
   if (portrait.matches) pause();
 });
 window.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !event.repeat) pause();
+  if (!board.isOpen() && event.key === "Escape" && !event.repeat) pause();
 });
 
 document
@@ -271,9 +272,12 @@ document
     begin();
   });
 restartButton.addEventListener("click", begin);
+document.querySelector("#replay-board")!.addEventListener("click", () => {
+  board.close();
+  begin();
+});
 editButton.addEventListener("click", () => {
   if (game.phase !== "over") return;
-  board.clear();
   startOverlay.hidden = false;
   startButton.textContent = "確認並起飛";
   cancelEdit.hidden = false;
@@ -290,7 +294,7 @@ cancelEdit.addEventListener("click", () => {
 });
 for (const eventType of ["keydown", "keyup"] as const) {
   window.addEventListener(eventType, (event) => {
-    if (event.target instanceof HTMLInputElement) return;
+    if (board.isOpen() || event.target instanceof HTMLInputElement) return;
     if (
       !["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)
     )
@@ -323,7 +327,7 @@ function updateStick(event: PointerEvent): void {
   stick.style.transform = `translate(${length ? (dx / length) * radius * distance : 0}px, ${length ? (dy / length) * radius * distance : 0}px)`;
 }
 joystick.addEventListener("pointerdown", (event) => {
-  if (activePointer !== undefined || !event.isPrimary) return;
+  if (board.isOpen() || activePointer !== undefined || !event.isPrimary) return;
   event.preventDefault();
   if (game.phase === "ready") begin();
   if (game.phase !== "playing") return;

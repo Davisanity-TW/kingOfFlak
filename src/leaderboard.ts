@@ -70,7 +70,7 @@ export function formatTaipei(value: string): string {
 export async function submitScore(
   score: Score,
   base: string,
-): Promise<RankedScore> {
+): Promise<RankedScore | { stored: false }> {
   const response = await fetch(`${base.replace(/\/$/, "")}/scores`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -94,7 +94,7 @@ export async function readLeaderboard(base: string): Promise<RankedScore[]> {
     throw new ServiceError(502);
   }
   if (!Array.isArray(rows)) throw new ServiceError(502);
-  return rows.slice(0, 20).map((row) => {
+  return rows.slice(0, 50).map((row) => {
     if (!row || typeof row !== "object") throw new ServiceError(502);
     const { roundId, nickname, mode, scoreTenths, id, receivedAt } = row;
     const score = parseScore({ roundId, nickname, mode, scoreTenths });

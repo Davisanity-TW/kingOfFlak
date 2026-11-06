@@ -44,7 +44,7 @@ export default {
       if (request.method === "GET") {
         const result = await env.DB.prepare(
           `SELECT ${columns} FROM scores
-          ORDER BY score_tenths DESC, received_at ASC, id ASC LIMIT 20`,
+          ORDER BY score_tenths DESC, received_at ASC, id ASC LIMIT 50`,
         ).all<RankedScore>();
         return reply(result.results);
       }
@@ -122,11 +122,25 @@ export default {
           score.scoreTenths,
           bucket,
         ),
+        env.DB.prepare(`DELETE FROM scores WHERE round_id NOT IN (
+          SELECT round_id FROM scores
+          ORDER BY score_tenths DESC, received_at ASC, id ASC LIMIT 50
+        )`),
         env.DB.prepare(`SELECT ${columns} FROM scores WHERE round_id = ?`).bind(
           score.roundId,
         ),
+        env.DB.prepare(
+          "SELECT count FROM submission_limits WHERE bucket = ?",
+        ).bind(bucket),
       ]);
-      const saved = results[3].results[0] as RankedScore | undefined;
+      const saved = results[4].results[0] as RankedScore | undefined;
+      if (
+        !saved &&
+        Number(
+          (results[5].results[0] as { count: number } | undefined)?.count,
+        ) <= 20
+      )
+        return reply({ stored: false });
       if (!saved) {
         headers.set(
           "Retry-After",

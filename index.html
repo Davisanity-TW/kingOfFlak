@@ -79,6 +79,7 @@
                   <p id="nickname-error" role="alert" hidden></p>
                   <p class="public-note">暱稱與成績將公開顯示於共同排行榜。</p>
                   <button id="start-button" type="submit">開始飛行</button>
+                  <button id="entry-board" type="button">查看排行榜</button>
                   <button id="cancel-edit" type="button" hidden>
                     返回結算
                   </button>
@@ -116,6 +117,7 @@
             <div class="metric">
               <span>存活時間</span>
               <div><strong id="survival-time">0.0</strong><span>秒</span></div>
+              <p id="new-record" role="status" hidden>New Record</p>
             </div>
             <div class="metric bullet-metric">
               <span>空域威脅</span>
@@ -129,32 +131,7 @@
               再飛一次 <span aria-hidden="true">↗</span>
             </button>
             <button id="edit-nickname" type="button" hidden>修改暱稱</button>
-          </section>
-          <section id="leaderboard" hidden aria-labelledby="leaderboard-title">
-            <h3 id="leaderboard-title">共同排行榜 · 前 20 名</h3>
-            <p id="upload-status" role="status"></p>
-            <p id="board-status" role="status"></p>
-            <button id="reload-board" type="button">重新讀榜</button>
-            <div
-              class="board-scroll"
-              tabindex="0"
-              aria-label="共同排行榜，台北時間"
-            >
-              <table>
-                <caption>
-                  歷來總榜 · 台北時間 Asia/Taipei
-                </caption>
-                <thead>
-                  <tr>
-                    <th scope="col">名次</th>
-                    <th scope="col">暱稱</th>
-                    <th scope="col">秒數</th>
-                    <th scope="col">遊玩日期</th>
-                  </tr>
-                </thead>
-                <tbody id="board-rows"></tbody>
-              </table>
-            </div>
+            <button id="result-board" type="button" hidden>查看排行榜</button>
           </section>
           <section class="controls" aria-labelledby="controls-title">
             <h3 id="controls-title">飛行指南</h3>
@@ -181,5 +158,32 @@
       </footer>
     </main>
     <script type="module" src="/src/main.ts"></script>
+    <dialog id="leaderboard" aria-labelledby="leaderboard-title">
+      <h3 id="leaderboard-title">共同排行榜 · 前 50 名</h3>
+      <p id="round-summary" hidden></p>
+      <p id="upload-status" role="status"></p>
+      <p id="board-status" role="status"></p>
+      <button id="reload-board" type="button">重新讀榜</button>
+      <div class="board-scroll" tabindex="0" aria-label="共同排行榜，台北時間">
+        <table>
+          <caption>
+            歷來總榜 · 台北時間 Asia/Taipei
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">名次</th>
+              <th scope="col">暱稱</th>
+              <th scope="col">秒數</th>
+              <th scope="col">遊玩日期</th>
+            </tr>
+          </thead>
+          <tbody id="board-rows"></tbody>
+        </table>
+      </div>
+      <div class="board-actions">
+        <button id="back-board" type="button">返回</button
+        ><button id="replay-board" type="button" hidden>再飛一次</button>
+      </div>
+    </dialog>
   </body>
 </html>

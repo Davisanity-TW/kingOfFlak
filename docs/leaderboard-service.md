@@ -1,5 +1,7 @@
 # 工單 08：共同排行榜服務
 
+本文件契約已同步工單 09 的前 50 名及榜外不留存修訂；新版目前僅完成本機實作，正式 Worker 仍為先前版本，須於發布時套用遷移並部署新版。歷史驗證結果保留於文末。
+
 ## 選型與部署
 
 採用 Cloudflare Workers 執行驗證與 HTTP API，D1 持久保存成績；前端繼續使用 GitHub Pages。使用者已確認採用免費方案並完成本機 Wrangler 登入。本次不建立帳號、付費訂閱或額外網域。
@@ -12,11 +14,15 @@
 
 ## 契約
 
-- `GET /scores`：回傳陣列，依 `scoreTenths` 降冪、完整 `receivedAt` 升冪、`id` 升冪固定取前 20 筆。空榜回傳 `[]`。不做日期格式化或用隱藏小數破同分，停用 HTTP 快取。
+- `GET /scores`：回傳陣列，依 `scoreTenths` 降冪、完整 `receivedAt` 升冪、`id` 升冪固定取前 50 筆。空榜回傳 `[]`。不做日期格式化或用隱藏小數破同分，停用 HTTP 快取。
 - `POST /scores`：只接受 `application/json`，UTF-8 負載最多 1,024 bytes。欄位恰為 `roundId`（UUID v4）、`nickname`（原名）、`mode`（`pc` 或 `mb`）、`scoreTenths`（0 至 `Number.MAX_SAFE_INTEGER` 的整數）；未知欄位拒絕。暱稱使用工單 07 的共用 `parseNickname`，不信任前端檢查。
 - 成績換算共用 `toScoreTenths(seconds) = Math.round(seconds * 10)`；拒絕非有限、負數或換算後無法精確表示的數值。畫面與提交皆使用同一結果，沒有任意局長上限。
-- 成功新增回傳 `201` 與紀錄，新增獨立伺服器 UUID `id`、UTC 毫秒 `receivedAt`；相同局次與相同正規化內容回傳原紀錄及 `200`，時間不變。同 ID 不同內容回傳 `409 round_conflict`。不同 ID 即使同名同分仍各自收錄。
+- 成功新增回傳 `201` 與紀錄，新增獨立伺服器 UUID `id`、UTC 毫秒 `receivedAt`；相同局次與相同正規化內容回傳原紀錄及 `200`，時間不變。同 ID 不同內容回傳 `409 round_conflict`。不同 ID 即使同名同分仍各自競爭榜位。未入前 50 名回傳 `200 { "stored": false }`，不是提交失敗；前端保留本局摘要並顯示未收錄。
 - `400`：JSON 或欄位錯誤；`403`：來源不允許；`404`：路徑錯誤；`405`：不允許的方法；`413`：負載過大；`415`：非 JSON；`429`：限流，附 `Retry-After` 秒數；`503`：儲存服務失敗。錯誤回傳 `{ "error": "代碼" }`，不回傳內部 SQL 或憑證。
+
+2026-11-06 追加保留政策：D1 成績表只保留目前前 50 名。同一原子批次內完成候選新增、依原排序刪除榜外成績及查詢提交結果，提交後不留榜外資料；限流桶另依原有期限清理。交易內暫時寫入再刪除仍消耗 D1 寫入額度。未入榜與被擠出資料不另留歷史或局次墓碑，因此防重複與內容衝突檢查只對榜內仍存在的局次有效；前端仍只提交一次，不補傳。榜單滿 50 筆時，同分沿用完整伺服器時間及 ID 決定前後。
+
+既有資料以 `server/migrations/0002_keep_top_fifty.sql` 按相同排序裁切至 50 筆；部署新版前須套用對應正式／隔離環境遷移，會移除原本第 51 名以後的資料。本輪只驗證獨立本機資料，尚未修改正式資料庫。
 
 正式環境只允許網站來源 `https://davisanity-tw.github.io`；來源的單位是 origin，無 `/kingOfFlak/` 路徑。無 Origin 的直接 GET 可讀取公開榜單；POST 必須附允許的 Origin。測試及本機來源由 `wrangler.jsonc` 分開設定，不使用萬用 CORS，也不開放更新、刪除或 SQL API。
 
@@ -62,7 +68,7 @@ npm run format:check
 FLAK_TEST_API_URL=https://king-of-flak-scores-test.king-of-flak.workers.dev npm run test:api
 ```
 
-線上測試略過大量灌分、同 IP 限流及本機程序重啟項目；這三項由本機 D1 測試覆蓋，避免用同一真實 IP 在測試中繞過限制。重跑前僅由管理者確認測試環境資料可清除後，使用 Wrangler 清理測試表；正式表不得套用清理命令。
+線上測試略過大量灌分、同 IP 限流及本機程序重啟項目；這三項由本機 D1 測試覆蓋，避免用同一真實 IP 在測試中繞過限制。重跑前僅由管理者確認測試環境資料可清除後，使用 Wrangler 清理測試表；不得將測試環境的全量清空命令套用正式表；正式部署僅執行既定的前 50 名裁切遷移。
 
 初次建立其他帳號的環境，先 `npx wrangler login`，再執行 `npx wrangler d1 create <資料庫名稱>`，把回傳 ID 填入對應 `wrangler.jsonc` 綁定；正式與測試各一份。部署及遷移只使用管理者登入，不提供前端資料庫金鑰：
 
