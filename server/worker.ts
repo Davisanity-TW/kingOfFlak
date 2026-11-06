@@ -4,6 +4,7 @@ import type { RankedScore, Score } from "../src/leaderboard.ts";
 
 interface Env {
   DB: D1Database;
+  MOBILE_DB: D1Database;
   ALLOWED_ORIGINS: string;
 }
 const columns = `round_id AS roundId, id, nickname, mode,
@@ -42,10 +43,17 @@ export default {
       return reply({ error: "method_not_allowed" }, 405);
     try {
       if (request.method === "GET") {
-        const result = await env.DB.prepare(
-          `SELECT ${columns} FROM scores
+        const mode = new URL(request.url).searchParams.get("mode") ?? "pc";
+        if (mode !== "pc" && mode !== "mb")
+          return reply({ error: "invalid_mode" }, 400);
+        const db = mode === "mb" ? env.MOBILE_DB : env.DB;
+        const result = await db
+          .prepare(
+            `SELECT ${columns} FROM scores WHERE mode = ?
           ORDER BY score_tenths DESC, received_at ASC, id ASC LIMIT 50`,
-        ).all<RankedScore>();
+          )
+          .bind(mode)
+          .all<RankedScore>();
         return reply(result.results);
       }
       if (
@@ -83,9 +91,9 @@ export default {
       }
       const score = parseScore(input);
       if (!score) return reply({ error: "invalid_score" }, 400);
-      const existing = await env.DB.prepare(
-        `SELECT ${columns} FROM scores WHERE round_id = ?`,
-      )
+      const db = score.mode === "mb" ? env.MOBILE_DB : env.DB;
+      const existing = await db
+        .prepare(`SELECT ${columns} FROM scores WHERE round_id = ?`)
         .bind(score.roundId)
         .first<RankedScore>();
       if (existing)
@@ -102,36 +110,40 @@ export default {
       const bucket = Array.from(new Uint8Array(digest), (value) =>
         value.toString(16).padStart(2, "0"),
       ).join("");
-      const results = await env.DB.batch([
-        env.DB.prepare("DELETE FROM submission_limits WHERE expires < ?").bind(
-          minute,
-        ),
-        env.DB.prepare(
-          `INSERT INTO submission_limits(bucket,count,expires) VALUES (?,1,?)
+      const results = await db.batch([
+        db
+          .prepare("DELETE FROM submission_limits WHERE expires < ?")
+          .bind(minute),
+        db
+          .prepare(
+            `INSERT INTO submission_limits(bucket,count,expires) VALUES (?,1,?)
           ON CONFLICT(bucket) DO UPDATE SET count = MIN(count + 1, 21)`,
-        ).bind(bucket, minute + 1),
-        env.DB.prepare(
-          `INSERT INTO scores(round_id,id,nickname,mode,score_tenths)
+          )
+          .bind(bucket, minute + 1),
+        db
+          .prepare(
+            `INSERT INTO scores(round_id,id,nickname,mode,score_tenths)
           SELECT ?,?,?,?,? WHERE (SELECT count FROM submission_limits WHERE bucket=?) <= 20
           ON CONFLICT(round_id) DO NOTHING`,
-        ).bind(
-          score.roundId,
-          crypto.randomUUID(),
-          score.nickname,
-          score.mode,
-          score.scoreTenths,
-          bucket,
-        ),
-        env.DB.prepare(`DELETE FROM scores WHERE round_id NOT IN (
+          )
+          .bind(
+            score.roundId,
+            crypto.randomUUID(),
+            score.nickname,
+            score.mode,
+            score.scoreTenths,
+            bucket,
+          ),
+        db.prepare(`DELETE FROM scores WHERE round_id NOT IN (
           SELECT round_id FROM scores
           ORDER BY score_tenths DESC, received_at ASC, id ASC LIMIT 50
         )`),
-        env.DB.prepare(`SELECT ${columns} FROM scores WHERE round_id = ?`).bind(
-          score.roundId,
-        ),
-        env.DB.prepare(
-          "SELECT count FROM submission_limits WHERE bucket = ?",
-        ).bind(bucket),
+        db
+          .prepare(`SELECT ${columns} FROM scores WHERE round_id = ?`)
+          .bind(score.roundId),
+        db
+          .prepare("SELECT count FROM submission_limits WHERE bucket = ?")
+          .bind(bucket),
       ]);
       const saved = results[4].results[0] as RankedScore | undefined;
       if (

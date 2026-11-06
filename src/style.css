@@ -711,3 +711,18 @@ kbd {
     animation: none;
   }
 }
+
+.board-modes {
+  display: flex;
+  gap: 8px;
+}
+.board-modes button {
+  flex: 1;
+  min-height: 44px;
+  background: #263025;
+  color: #edf3ef;
+}
+.board-modes button[aria-pressed="true"] {
+  background: var(--accent);
+  color: #1c2a14;
+}

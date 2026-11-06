@@ -49,7 +49,7 @@ const cancelEdit = document.querySelector<HTMLButtonElement>("#cancel-edit")!;
 let roundId = "";
 const leaderboardUrl = import.meta.env.VITE_LEADERBOARD_URL as
   string | undefined;
-const board = resultBoard(leaderboardUrl);
+const board = resultBoard(leaderboardUrl, game.mobile ? "mb" : "pc");
 let roundIdentity: ReturnType<typeof createRoundIdentity> = null;
 try {
   nicknameInput.value = readSavedNickname(

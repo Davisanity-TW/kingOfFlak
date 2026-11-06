@@ -81,11 +81,17 @@ export async function submitScore(
   return response.json();
 }
 
-export async function readLeaderboard(base: string): Promise<RankedScore[]> {
-  const response = await fetch(`${base.replace(/\/$/, "")}/scores`, {
-    cache: "no-store",
-    signal: AbortSignal.timeout(5000),
-  });
+export async function readLeaderboard(
+  base: string,
+  requestedMode: Score["mode"],
+): Promise<RankedScore[]> {
+  const response = await fetch(
+    `${base.replace(/\/$/, "")}/scores?mode=${requestedMode}`,
+    {
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000),
+    },
+  );
   if (!response.ok) throw new ServiceError(response.status);
   let rows: unknown;
   try {
@@ -100,6 +106,7 @@ export async function readLeaderboard(base: string): Promise<RankedScore[]> {
     const score = parseScore({ roundId, nickname, mode, scoreTenths });
     if (
       !score ||
+      score.mode !== requestedMode ||
       typeof id !== "string" ||
       typeof receivedAt !== "string" ||
       !Number.isFinite(Date.parse(receivedAt))

@@ -6,7 +6,10 @@ import {
 } from "./leaderboard.ts";
 import type { Score } from "./leaderboard.ts";
 
-export function resultBoard(base: string | undefined) {
+export function resultBoard(
+  base: string | undefined,
+  deviceMode: Score["mode"],
+) {
   const panel = document.querySelector<HTMLDialogElement>("#leaderboard")!;
   const upload = document.querySelector<HTMLElement>("#upload-status")!;
   const summary = document.querySelector<HTMLElement>("#round-summary")!;
@@ -18,7 +21,26 @@ export function resultBoard(base: string | undefined) {
   const entry = document.querySelector<HTMLButtonElement>("#entry-board")!;
   const replay = document.querySelector<HTMLButtonElement>("#replay-board")!;
   let generation = 0;
-  let busy = false;
+  let reading = new Set<Score["mode"]>();
+  let selectedMode = deviceMode;
+  const modeLabel = document.querySelector<HTMLElement>("#board-mode-label")!;
+  const modeButtons = {
+    mb: document.querySelector<HTMLButtonElement>("#board-mb")!,
+    pc: document.querySelector<HTMLButtonElement>("#board-pc")!,
+  };
+  function selectMode(mode: Score["mode"]) {
+    selectedMode = mode;
+    for (const key of ["mb", "pc"] as const)
+      modeButtons[key].setAttribute("aria-pressed", String(key === mode));
+    modeLabel.textContent = `${mode === "mb" ? "手機" : "電腦"}排行榜 · 前 50 名`;
+    rows.replaceChildren();
+    void read(generation);
+  }
+  modeButtons.mb.addEventListener("click", () => selectMode("mb"));
+  modeButtons.pc.addEventListener("click", () => selectMode("pc"));
+  for (const key of ["mb", "pc"] as const)
+    modeButtons[key].setAttribute("aria-pressed", String(key === selectedMode));
+  modeLabel.textContent = `${selectedMode === "mb" ? "手機" : "電腦"}排行榜 · 前 50 名`;
   let submitting = false;
   let score: Score | undefined;
   let confirmed = false;
@@ -73,23 +95,31 @@ export function resultBoard(base: string | undefined) {
       close();
   });
 
-  async function read(token: number): Promise<void> {
-    if (busy || submitting || token !== generation) return;
-    rows.replaceChildren();
-    badge(false);
-    upload.textContent = uploadMessage;
+  async function read(token: number, mode = selectedMode): Promise<void> {
+    if (token !== generation) return;
+    if (mode === selectedMode) {
+      rows.replaceChildren();
+      upload.textContent = uploadMessage;
+      status.textContent = "讀取排行榜中…";
+      retry.disabled = true;
+    }
+    if (reading.has(mode) || submitting) return;
+    if (score?.mode === mode) {
+      badge(false);
+      if (confirmed) uploadMessage = "本局成績已收錄。";
+      upload.textContent = uploadMessage;
+    }
     if (!base) {
       retry.disabled = true;
       status.textContent = "排行榜暫時無法使用";
       return;
     }
-    busy = true;
-    retry.disabled = true;
-    status.textContent = "讀取排行榜中…";
+    reading.add(mode);
     try {
-      const scores = await readLeaderboard(base);
+      const scores = await readLeaderboard(base, mode);
       if (token !== generation) return;
       let ranked = false;
+      const rendered = document.createDocumentFragment();
       scores.forEach((row, index) => {
         const current =
           !!score &&
@@ -102,7 +132,7 @@ export function resultBoard(base: string | undefined) {
         if (current) tr.classList.add("current-round");
         for (const text of [
           `${index + 1}${current ? " · 本局 · 新入榜" : ""}`,
-          `${row.nickname}_${row.mode}`,
+          row.nickname,
           (row.scoreTenths / 10).toFixed(1),
           formatTaipei(row.receivedAt),
         ]) {
@@ -110,32 +140,33 @@ export function resultBoard(base: string | undefined) {
           td.textContent = text;
           tr.append(td);
         }
-        rows.append(tr);
+        rendered.append(tr);
       });
-      if (ranked) {
-        confirmed = true;
-        uploadMessage = "本局成績已收錄。";
-      }
-      badge(ranked);
-      if (score)
-        upload.textContent = confirmed
-          ? ranked
+      if (score?.mode === mode) {
+        if (ranked) confirmed = true;
+        badge(ranked);
+        if (confirmed)
+          uploadMessage = ranked
             ? "本局成績已收錄 · 新入榜"
-            : "本局曾收錄 · 目前未入前 50 名"
-          : uploadMessage;
-      status.textContent = scores.length
-        ? `共 ${scores.length} 筆紀錄`
-        : "尚無紀錄";
+            : "本局曾收錄 · 目前未入前 50 名";
+        upload.textContent = uploadMessage;
+      }
+      if (mode === selectedMode) {
+        rows.replaceChildren(rendered);
+        status.textContent = scores.length
+          ? `共 ${scores.length} 筆紀錄`
+          : "尚無紀錄";
+      }
     } catch (error) {
-      if (token !== generation) return;
+      if (token !== generation || mode !== selectedMode) return;
       status.textContent =
         error instanceof ServiceError
           ? "排行榜暫時無法使用"
           : "離線，無法抓取排行榜";
     } finally {
       if (token === generation) {
-        busy = false;
-        retry.disabled = false;
+        reading.delete(mode);
+        if (mode === selectedMode) retry.disabled = false;
       }
     }
   }
@@ -146,7 +177,15 @@ export function resultBoard(base: string | undefined) {
     clear() {
       generation++;
       close();
-      busy = submitting = confirmed = false;
+      reading = new Set();
+      submitting = confirmed = false;
+      selectedMode = deviceMode;
+      for (const key of ["mb", "pc"] as const)
+        modeButtons[key].setAttribute(
+          "aria-pressed",
+          String(key === selectedMode),
+        );
+      modeLabel.textContent = `${selectedMode === "mb" ? "手機" : "電腦"}排行榜 · 前 50 名`;
       score = undefined;
       result.hidden = replay.hidden = summary.hidden = true;
       badge(false);
@@ -161,10 +200,17 @@ export function resultBoard(base: string | undefined) {
       const token = ++generation;
       score = finished;
       confirmed = false;
-      busy = false;
+      reading = new Set();
+      selectedMode = score.mode;
+      for (const key of ["mb", "pc"] as const)
+        modeButtons[key].setAttribute(
+          "aria-pressed",
+          String(key === selectedMode),
+        );
+      modeLabel.textContent = `${selectedMode === "mb" ? "手機" : "電腦"}排行榜 · 前 50 名`;
       submitting = true;
       result.hidden = replay.hidden = summary.hidden = false;
-      summary.textContent = `本局：${score.nickname}_${score.mode} · ${(score.scoreTenths / 10).toFixed(1)} 秒`;
+      summary.textContent = `本局（${score.mode === "mb" ? "手機" : "電腦"}）：${score.nickname} · ${(score.scoreTenths / 10).toFixed(1)} 秒`;
       retry.disabled = true;
       rows.replaceChildren();
       badge(false);
@@ -191,7 +237,9 @@ export function resultBoard(base: string | undefined) {
       }
       if (token === generation) {
         submitting = false;
-        await read(token);
+        await read(token, finished.mode);
+        if (token === generation && selectedMode !== finished.mode)
+          await read(token);
       }
     },
   };

@@ -23,6 +23,6 @@ export function createRoundIdentity(value: unknown, mobile: boolean) {
     : Object.freeze({
         nickname,
         mobile,
-        displayName: `${nickname}_${mobile ? "mb" : "pc"}`,
+        displayName: nickname,
       });
 }

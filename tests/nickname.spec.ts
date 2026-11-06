@@ -12,7 +12,7 @@ async function finishRound(page: Page) {
   await expect(page.locator("#phase-title")).toHaveText("飛行結束");
 }
 
-test("entry validates, previews the suffix and remembers only a valid original nickname", async ({
+test("entry validates, previews the original name and remembers only a valid nickname", async ({
   page,
 }) => {
   await page.clock.install();
@@ -35,13 +35,13 @@ test("entry validates, previews the suffix and remembers only a valid original n
   ).toBeNull();
   await input.fill(" Ace_pc ");
   await expect(page.locator("#nickname-preview")).toHaveText(
-    "顯示名稱：Ace_pc_pc",
+    "顯示名稱：Ace_pc",
   );
   await input.press("ArrowLeft");
   await expect(page.locator("#phase-title")).toHaveText("等待起飛");
   await input.press("Enter");
   await expect(page.locator("#phase-title")).toHaveText("倒數 3");
-  await expect(page.locator("#round-pilot")).toHaveText("Ace_pc_pc");
+  await expect(page.locator("#round-pilot")).toHaveText("Ace_pc");
   expect(
     await page.evaluate(
       (key) => JSON.parse(localStorage.getItem(key)!),
@@ -67,20 +67,20 @@ test("editing for a new round keeps the previous name fixed and cancel restores 
   await page.getByRole("button", { name: "修改暱稱" }).click();
   await page.getByLabel("飛行暱稱", { exact: true }).fill("Second");
   await expect(page.locator("#nickname-preview")).toHaveText(
-    "顯示名稱：Second_pc",
+    "顯示名稱：Second",
   );
-  await expect(page.locator("#round-pilot")).toHaveText("First_pc");
+  await expect(page.locator("#round-pilot")).toHaveText("First");
   await page.getByRole("button", { name: "返回結算" }).click();
   await page.getByRole("button", { name: "再飛一次" }).click();
-  await expect(page.locator("#round-pilot")).toHaveText("First_pc");
+  await expect(page.locator("#round-pilot")).toHaveText("First");
   await finishRound(page);
   await page.getByRole("button", { name: "修改暱稱" }).click();
   await page.getByLabel("飛行暱稱", { exact: true }).fill("新名字_mb");
   await page.getByRole("button", { name: "確認並起飛" }).click();
-  await expect(page.locator("#round-pilot")).toHaveText("新名字_mb_pc");
+  await expect(page.locator("#round-pilot")).toHaveText("新名字_mb");
   await expect(page.locator("#survival-time")).toHaveText("0.0");
   await page.keyboard.press("Escape");
-  await expect(page.locator("#round-pilot")).toHaveText("新名字_mb_pc");
+  await expect(page.locator("#round-pilot")).toHaveText("新名字_mb");
 });
 
 test("corrupt and obsolete local data is ignored without starting a round", async ({
@@ -118,7 +118,7 @@ test("blocked storage still allows a valid round and reports the memory failure"
   await expect(page.locator("#storage-note")).toBeVisible();
   await page.getByLabel("飛行暱稱", { exact: true }).fill("訪客");
   await page.getByRole("button", { name: "開始飛行" }).click();
-  await expect(page.locator("#round-pilot")).toHaveText("訪客_pc");
+  await expect(page.locator("#round-pilot")).toHaveText("訪客");
   await expect(page.locator("#phase-title")).toHaveText("倒數 3");
   await expect(page.locator("#storage-note")).toHaveText(
     "無法記住暱稱，仍可正常遊玩。",
@@ -144,7 +144,7 @@ test.describe("mobile nickname entry", () => {
     await expect(page.locator("#phase-title")).toHaveText("等待起飛");
     await page.getByLabel("飛行暱稱", { exact: true }).fill("Ace_mb");
     await page.getByRole("button", { name: "開始飛行" }).click();
-    await expect(page.locator("#round-pilot")).toHaveText("Ace_mb_mb");
+    await expect(page.locator("#round-pilot")).toHaveText("Ace_mb");
     await page.reload();
     await expect(page.getByLabel("飛行暱稱", { exact: true })).toHaveValue(
       "Ace_mb",
@@ -158,10 +158,10 @@ test.describe("mobile nickname entry", () => {
     await expect(page.locator("#phase-title")).toHaveText("倒數 3");
     await page.setViewportSize({ width: 360, height: 640 });
     await expect(page.locator("#phase-title")).toHaveText("已暫停");
-    await expect(page.locator("#round-pilot")).toHaveText("Ace_mb_mb");
+    await expect(page.locator("#round-pilot")).toHaveText("Ace_mb");
     await page.setViewportSize({ width: 640, height: 360 });
     await page.getByRole("button", { name: "繼續飛行" }).click();
-    await expect(page.locator("#round-pilot")).toHaveText("Ace_mb_mb");
+    await expect(page.locator("#round-pilot")).toHaveText("Ace_mb");
   });
 
   test("a reduced viewport can scroll the focused entry form to its start button", async ({
@@ -199,7 +199,7 @@ test("a write quota failure keeps the remembered name and does not block a new o
   await expect(page.locator("#storage-note")).toBeHidden();
   await page.getByLabel("飛行暱稱", { exact: true }).fill("New");
   await page.getByRole("button", { name: "開始飛行" }).click();
-  await expect(page.locator("#round-pilot")).toHaveText("New_pc");
+  await expect(page.locator("#round-pilot")).toHaveText("New");
   await expect(page.locator("#storage-note")).toBeVisible();
   expect(
     await page.evaluate(

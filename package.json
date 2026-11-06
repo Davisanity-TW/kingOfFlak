@@ -18,7 +18,7 @@
     "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
     "test:performance": "FLAK_PERFORMANCE=1 playwright test --project=chrome",
     "api:dev": "wrangler dev --env local --ip 127.0.0.1 --port 8787",
-    "api:migrate:local": "wrangler d1 migrations apply king-of-flak-scores-local --local --env local",
+    "api:migrate:local": "wrangler d1 migrations apply king-of-flak-scores-local --local --env local && wrangler d1 migrations apply king-of-flak-scores-local-mb --local --env local",
     "api:deploy": "wrangler deploy --env=\"\"",
     "test:api": "node --test tests/api.test.ts"
   },

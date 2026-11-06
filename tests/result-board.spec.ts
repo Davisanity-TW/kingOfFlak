@@ -1,12 +1,12 @@
 import { test, expect } from "@playwright/test";
 import type { Page, Route } from "@playwright/test";
 
-const api = "https://scores.test/scores";
+const api = "https://scores.test/scores*";
 const row = {
   roundId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
   id: "record",
   nickname: "玩家",
-  mode: "mb",
+  mode: "pc",
   scoreTenths: 123,
   receivedAt: "2026-01-01T16:01:00.000Z",
 };
@@ -69,7 +69,7 @@ test("result submits once then displays at most fifty records in Taipei time", a
   await finish(page);
   await expect(page.locator("#upload-status")).toContainText("本局曾收錄");
   await expect(page.locator("#board-rows tr")).toHaveCount(50);
-  await expect(page.locator("#board-rows tr").first()).toContainText("玩家_mb");
+  await expect(page.locator("#board-rows tr").first()).toContainText("玩家");
   await expect(page.locator("#board-rows tr").first()).toContainText(
     "2026/01/02 00:01",
   );
@@ -281,7 +281,7 @@ test.describe("mobile full board", () => {
         route,
         route.request().method() === "POST"
           ? row
-          : Array.from({ length: 50 }, () => row),
+          : Array.from({ length: 50 }, () => ({ ...row, mode: "mb" })),
       ),
     );
     await finish(page);
@@ -382,7 +382,7 @@ test("exact round confirms a lost upload, highlights only this run and loses bad
     "本局成績已收錄 · 新入榜",
   );
   await expect(page.locator("tr.current-round")).toHaveCount(1);
-  await expect(page.locator("#round-summary")).toContainText("測試_pc");
+  await expect(page.locator("#round-summary")).toContainText("測試");
   await page.locator("#back-board").click();
   await page.locator("#edit-nickname").click();
   await page.locator("#nickname").fill("下一局");
@@ -391,14 +391,14 @@ test("exact round confirms a lost upload, highlights only this run and loses bad
   await expect(page.locator("#upload-status")).toHaveText(
     "本局曾收錄 · 目前未入前 50 名",
   );
-  await expect(page.locator("#round-summary")).toContainText("測試_pc");
+  await expect(page.locator("#round-summary")).toContainText("測試");
   await expect(page.locator("tr.current-round")).toHaveCount(0);
   await expect(page.locator("#entry-board")).not.toContainText("新入榜");
   await expect(page.locator("#new-record")).toBeHidden();
   await page.locator("#replay-board").click();
   await expect(page.locator("#leaderboard")).not.toBeVisible();
   await expect(page.locator("#round-summary")).toHaveText("");
-  await expect(page.locator("#round-pilot")).toHaveText("下一局_pc");
+  await expect(page.locator("#round-pilot")).toHaveText("下一局");
   expect(posts).toBe(1);
 });
 
@@ -454,7 +454,7 @@ test("a processed score outside the top fifty is explicitly not stored", async (
   await expect(page.locator("#upload-status")).toHaveText(
     "本局未入前 50 名，未收錄。",
   );
-  await expect(page.locator("#round-summary")).toContainText("測試_pc");
+  await expect(page.locator("#round-summary")).toContainText("測試");
   await expect(page.locator("#new-record")).toBeHidden();
   await expect(page.locator("tr.current-round")).toHaveCount(0);
   await page.locator("#reload-board").click();
@@ -462,4 +462,71 @@ test("a processed score outside the top fifty is explicitly not stored", async (
     "本局未入前 50 名，未收錄。",
   );
   expect(posts).toBe(1);
+});
+
+test("mode buttons isolate rows and ignore a late reply from the other board", async ({
+  page,
+}) => {
+  let desktop: Route | undefined;
+  let posts = 0;
+  await ready(
+    page,
+    async (route) => {
+      if (route.request().method() === "POST") {
+        posts++;
+        return json(route, row);
+      }
+      const mode = new URL(route.request().url()).searchParams.get("mode");
+      if (mode === "pc") desktop = route;
+      else await json(route, [{ ...row, mode: "mb", nickname: "手機玩家" }]);
+    },
+    true,
+    false,
+  );
+  await page.locator("#entry-board").click();
+  await expect(page.locator("#board-pc")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await page.locator("#board-mb").click();
+  await expect(page.locator("#board-rows")).toContainText("手機玩家");
+  await json(desktop!, [{ ...row, nickname: "電腦玩家" }]);
+  await expect(page.locator("#board-rows")).not.toContainText("電腦玩家");
+  await expect(page.locator("#board-mb")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  expect(posts).toBe(0);
+});
+
+test("viewing another mode preserves this round's rank and does not append nickname suffixes", async ({
+  page,
+}) => {
+  let saved: Record<string, unknown> = {};
+  await ready(page, async (route) => {
+    if (route.request().method() === "POST") {
+      saved = route.request().postDataJSON();
+      return json(route, { ...row, ...saved });
+    }
+    const mode = new URL(route.request().url()).searchParams.get("mode");
+    await json(
+      route,
+      mode === "pc"
+        ? [{ ...row, ...saved }]
+        : [{ ...row, mode: "mb", nickname: "同名玩家" }],
+    );
+  });
+  await finish(page);
+  await expect(page.locator("tr.current-round")).toHaveCount(1);
+  await page.locator("#board-mb").click();
+  await expect(page.locator("#board-rows")).toContainText("同名玩家");
+  await expect(page.locator("#board-rows")).not.toContainText("同名玩家_mb");
+  await expect(page.locator("tr.current-round")).toHaveCount(0);
+  await expect(page.locator("#new-record")).toBeVisible();
+  await expect(page.locator("#upload-status")).toContainText("新入榜");
+  await expect(page.locator("#round-summary")).toContainText(
+    "本局（電腦）：測試",
+  );
+  await page.locator("#board-pc").click();
+  await expect(page.locator("tr.current-round")).toHaveCount(1);
 });

@@ -29,8 +29,8 @@ const post = (body: unknown, ip = crypto.randomUUID()) =>
     headers: remote ? headers : { ...headers, "CF-Connecting-IP": ip },
     body: JSON.stringify(body),
   });
-const list = async (): Promise<RankedScore[]> =>
-  (await fetch(`${base}/scores`, { headers })).json();
+const list = async (mode = "pc"): Promise<RankedScore[]> =>
+  (await fetch(`${base}/scores?mode=${mode}`, { headers })).json();
 
 test("D1 schema resolves equal score and full timestamp ties by stable ID", () => {
   const db = new DatabaseSync(":memory:");
@@ -124,28 +124,34 @@ test(
     };
     try {
       if (!remote)
-        execFileSync(
-          process.execPath,
-          [
-            cli,
-            "d1",
-            "migrations",
-            "apply",
-            "king-of-flak-scores-local",
-            "--local",
-            "--env",
-            "local",
-            "--persist-to",
-            state,
-          ],
-          { env, stdio: "pipe" },
-        );
+        for (const database of [
+          "king-of-flak-scores-local",
+          "king-of-flak-scores-local-mb",
+        ])
+          execFileSync(
+            process.execPath,
+            [
+              cli,
+              "d1",
+              "migrations",
+              "apply",
+              database,
+              "--local",
+              "--env",
+              "local",
+              "--persist-to",
+              state,
+            ],
+            { env, stdio: "pipe" },
+          );
       await start();
       await t.test(
         "empty board, CORS, mutation protection and bounded payload",
         async () => {
           assert.deepEqual(await list(), []);
           assert.equal((await fetch(`${base}/scores`)).status, 200);
+          assert.equal((await fetch(`${base}/scores?mode=other`)).status, 400);
+          assert.deepEqual(await list("mb"), []);
           assert.equal(
             (
               await fetch(`${base}/scores`, {
@@ -210,7 +216,10 @@ test(
           assert.equal(responses.filter((r) => r.status === 201).length, 1);
           const saved = await Promise.all(responses.map((r) => r.json()));
           for (const row of saved) assert.deepEqual(row, saved[0]);
-          assert.equal((await post({ ...body, mode: "mb" })).status, 409);
+          assert.equal(
+            (await post({ ...body, nickname: "Other" })).status,
+            409,
+          );
           const retry = await post(body);
           assert.deepEqual(await retry.json(), saved[0]);
           assert.equal((await list()).length, 1);
@@ -222,7 +231,7 @@ test(
         },
       );
       await t.test(
-        "same-origin independent desktop and mobile browser contexts share D1 rows",
+        "same-origin independent desktop and mobile browser contexts use separate D1 boards",
         async () => {
           const gameUrl = "http://127.0.0.1:8791";
           const frontend = spawn(
@@ -274,12 +283,12 @@ test(
                 .click();
               assert.equal(
                 await page.locator("#round-pilot").textContent(),
-                `雙裝置_${mode}`,
+                "雙裝置",
               );
               assert.equal(
-                (await list()).filter((row) => row.nickname === "雙裝置")
+                (await list(mode)).filter((row) => row.nickname === "雙裝置")
                   .length,
-                mode === "pc" ? 0 : 1,
+                0,
               );
               const submission = page.waitForResponse(
                 (r) =>
@@ -295,7 +304,7 @@ test(
                   break;
               }
               assert.equal((await submission).status(), 201, errors.join("\n"));
-              const record = (await list()).find(
+              const record = (await list(mode)).find(
                 (row) => row.nickname === "雙裝置" && row.mode === mode,
               )!;
               assert.equal(
@@ -303,45 +312,39 @@ test(
                 Number(await page.locator("#survival-time").textContent()),
               );
             }
-            const boards = [];
-            for (const context of [desktop, mobile])
-              boards.push(
-                await context
-                  .pages()[0]
-                  .evaluate(
-                    async (base) => (await fetch(`${base}/scores`)).json(),
-                    base,
-                  ),
-              );
-            assert.deepEqual(boards[0], boards[1]);
-            const rendered = [];
-            for (const context of [desktop, mobile]) {
+            assert.equal((await list("pc")).length, 3);
+            assert.equal((await list("mb")).length, 1);
+            for (const [index, context] of [desktop, mobile].entries()) {
+              const mode = index === 0 ? "pc" : "mb";
+              const other = mode === "pc" ? "mb" : "pc";
               const page = context.pages()[0];
-              await page.waitForFunction(
-                () =>
-                  !document.querySelector<HTMLButtonElement>("#reload-board")!
-                    .disabled,
-              );
               await page.locator("#result-board").click();
-              await page.getByRole("button", { name: "重新讀榜" }).click();
               await page.waitForFunction(
-                () => document.querySelectorAll("#board-rows tr").length === 4,
+                (count) =>
+                  document.querySelectorAll("#board-rows tr").length === count,
+                mode === "pc" ? 3 : 1,
               );
               assert.equal(await page.locator("tr.current-round").count(), 1);
               assert.equal(await page.locator("#new-record").isVisible(), true);
-              rendered.push(await page.locator("#board-rows").textContent());
+              assert.ok(
+                (await page.locator("#board-rows").textContent())!.includes(
+                  "雙裝置",
+                ),
+              );
+              assert.ok(
+                !(await page.locator("#board-rows").textContent())!.includes(
+                  "雙裝置_",
+                ),
+              );
+              await page.locator(`#board-${other}`).click();
+              await page.waitForFunction(
+                (count) =>
+                  document.querySelectorAll("#board-rows tr").length === count,
+                other === "pc" ? 3 : 1,
+              );
+              assert.equal(await page.locator("tr.current-round").count(), 0);
+              assert.equal(await page.locator("#new-record").isVisible(), true);
             }
-            assert.equal(
-              rendered[0]!.replace(" · 本局 · 新入榜", ""),
-              rendered[1]!.replace(" · 本局 · 新入榜", ""),
-            );
-            assert.ok(rendered[0]!.includes("雙裝置_pc"));
-            assert.ok(rendered[0]!.includes("雙裝置_mb"));
-            assert.equal(
-              boards[0].filter((row: RankedScore) => row.nickname === "雙裝置")
-                .length,
-              2,
-            );
           } finally {
             await browser.close();
             frontend.kill("SIGTERM");
@@ -406,6 +409,40 @@ test(
             ),
           );
           assert.equal(stored[0].results[0].count, 50);
+          const desktop = await list("pc");
+          for (let i = 0; i < 52; i++)
+            assert.equal(
+              (await post(score({ mode: "mb", scoreTenths: 1000 + i }))).status,
+              201,
+            );
+          assert.equal((await list("mb")).length, 50);
+          assert.ok((await list("mb")).every((row) => row.mode === "mb"));
+          assert.deepEqual(await list("pc"), desktop);
+          assert.deepEqual(
+            await (await post(score({ mode: "mb", scoreTenths: 0 }))).json(),
+            { stored: false },
+          );
+          const mobileStored = JSON.parse(
+            execFileSync(
+              process.execPath,
+              [
+                cli,
+                "d1",
+                "execute",
+                "king-of-flak-scores-local-mb",
+                "--local",
+                "--env",
+                "local",
+                "--persist-to",
+                state,
+                "--command",
+                "SELECT COUNT(*) AS count FROM scores",
+                "--json",
+              ],
+              { env, encoding: "utf8" },
+            ),
+          );
+          assert.equal(mobileStored[0].results[0].count, 50);
         },
       );
       await t.test(
@@ -424,6 +461,10 @@ test(
           assert.equal(rejected.status, 429);
           assert.ok(Number(rejected.headers.get("Retry-After")) > 0);
           assert.equal((await post(original, ip)).status, 200);
+          assert.equal(
+            (await post(score({ mode: "mb", scoreTenths: 3000 }), ip)).status,
+            201,
+          );
         },
       );
       await t.test(

@@ -77,7 +77,9 @@
                   </p>
                   <p id="nickname-preview">顯示名稱：尚未輸入</p>
                   <p id="nickname-error" role="alert" hidden></p>
-                  <p class="public-note">暱稱與成績將公開顯示於共同排行榜。</p>
+                  <p class="public-note">
+                    入榜暱稱與成績將公開顯示於對應裝置排行榜。
+                  </p>
                   <button id="start-button" type="submit">開始飛行</button>
                   <button id="entry-board" type="button">查看排行榜</button>
                   <button id="cancel-edit" type="button" hidden>
@@ -159,15 +161,20 @@
     </main>
     <script type="module" src="/src/main.ts"></script>
     <dialog id="leaderboard" aria-labelledby="leaderboard-title">
-      <h3 id="leaderboard-title">共同排行榜 · 前 50 名</h3>
+      <h3 id="leaderboard-title">裝置排行榜 · 各前 50 名</h3>
+      <div class="board-modes" role="group" aria-label="選擇排行榜">
+        <button id="board-mb" type="button" aria-pressed="false">手機</button>
+        <button id="board-pc" type="button" aria-pressed="false">電腦</button>
+      </div>
+      <p id="board-mode-label"></p>
       <p id="round-summary" hidden></p>
       <p id="upload-status" role="status"></p>
       <p id="board-status" role="status"></p>
       <button id="reload-board" type="button">重新讀榜</button>
-      <div class="board-scroll" tabindex="0" aria-label="共同排行榜，台北時間">
+      <div class="board-scroll" tabindex="0" aria-label="裝置排行榜，台北時間">
         <table>
           <caption>
-            歷來總榜 · 台北時間 Asia/Taipei
+            各裝置歷來前 50 名 · 台北時間 Asia/Taipei
           </caption>
           <thead>
             <tr>

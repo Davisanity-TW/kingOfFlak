@@ -10,8 +10,14 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "king-of-flak-scores",
-      "database_id": "0b034940-ad82-42c4-9571-5af55548abe5",
+      "database_name": "king-of-flak-scores-pc",
+      "database_id": "278224e1-0244-4034-853c-2452c3ce11c3",
+      "migrations_dir": "server/migrations",
+    },
+    {
+      "binding": "MOBILE_DB",
+      "database_name": "king-of-flak-scores-mb",
+      "database_id": "e9605958-8b12-4fe6-9b8f-08ff244830d7",
       "migrations_dir": "server/migrations",
     },
   ],
@@ -27,6 +33,12 @@
           "database_id": "00000000-0000-0000-0000-000000000001",
           "migrations_dir": "server/migrations",
         },
+        {
+          "binding": "MOBILE_DB",
+          "database_name": "king-of-flak-scores-local-mb",
+          "database_id": "00000000-0000-0000-0000-000000000002",
+          "migrations_dir": "server/migrations",
+        },
       ],
     },
     "test": {
@@ -39,6 +51,12 @@
           "binding": "DB",
           "database_name": "king-of-flak-scores-test",
           "database_id": "3d029357-d05b-49b2-ad9d-8648297ee72c",
+          "migrations_dir": "server/migrations",
+        },
+        {
+          "binding": "MOBILE_DB",
+          "database_name": "king-of-flak-scores-test-mb",
+          "database_id": "e6e3bd38-cebb-47c8-8965-59704b3c9fe0",
           "migrations_dir": "server/migrations",
         },
       ],

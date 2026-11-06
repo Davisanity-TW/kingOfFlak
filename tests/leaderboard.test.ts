@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { formatTaipei, parseScore, toScoreTenths } from "../src/leaderboard.ts";
+import {
+  formatTaipei,
+  parseScore,
+  readLeaderboard,
+  ServiceError,
+  toScoreTenths,
+} from "../src/leaderboard.ts";
 
 const valid = {
   roundId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -45,4 +51,61 @@ test("the server contract validates originals, UUIDs, modes and exact safe integ
 
 test("dates cross midnight in Taipei regardless of viewer timezone", () => {
   assert.equal(formatTaipei("2026-01-01T16:01:00.000Z"), "2026/01/02 00:01");
+});
+
+test("legacy scores split into independent databases without changing originals, IDs or dates", async () => {
+  const { DatabaseSync } = await import("node:sqlite");
+  const { readFileSync } = await import("node:fs");
+  const { splitScoreSql } = await import("../server/migrate-scores.ts");
+  const records = [
+    {
+      ...valid,
+      nickname: "Ace_pc",
+      id: "desktop",
+      receivedAt: "2026-01-01T16:01:00.000Z",
+    },
+    {
+      ...valid,
+      roundId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      nickname: "原名_mb",
+      mode: "mb",
+      id: "mobile",
+      receivedAt: "2026-01-01T16:02:00.000Z",
+    },
+  ];
+  const sql = splitScoreSql(records);
+  for (const [index, mode] of (["pc", "mb"] as const).entries()) {
+    const db = new DatabaseSync(":memory:");
+    db.exec(readFileSync("server/migrations/0001_scores.sql", "utf8"));
+    db.exec(sql[mode]);
+    db.exec(sql[mode]);
+    const rows = db
+      .prepare(
+        "SELECT round_id AS roundId,id,nickname,mode,score_tenths AS scoreTenths,received_at AS receivedAt FROM scores",
+      )
+      .all();
+    assert.equal(rows.length, 1);
+    assert.deepEqual({ ...rows[0] }, records[index]);
+    db.close();
+  }
+  assert.throws(() => splitScoreSql([{ ...records[0], mode: "unknown" }]));
+  assert.throws(() => splitScoreSql([{ ...records[0], nickname: "<script>" }]));
+});
+
+test("reading a board rejects records from another mode", async (t) => {
+  t.mock.method(globalThis, "fetch", async () =>
+    Response.json([
+      {
+        ...valid,
+        nickname: "Ace_pc",
+        id: "desktop",
+        receivedAt: "2026-01-01T16:01:00.000Z",
+      },
+    ]),
+  );
+  assert.equal((await readLeaderboard("https://scores.test", "pc")).length, 1);
+  await assert.rejects(
+    readLeaderboard("https://scores.test", "mb"),
+    ServiceError,
+  );
 });

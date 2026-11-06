@@ -44,11 +44,11 @@ test("each immutable round identity retains its original name and mode", () => {
   assert.deepEqual(first, {
     nickname: "Ace_pc",
     mobile: false,
-    displayName: "Ace_pc_pc",
+    displayName: "Ace_pc",
   });
   const second = createRoundIdentity("玩家_mb", true)!;
-  assert.equal(second.displayName, "玩家_mb_mb");
-  assert.equal(first.displayName, "Ace_pc_pc");
+  assert.equal(second.displayName, "玩家_mb");
+  assert.equal(first.displayName, "Ace_pc");
   assert.ok(Object.isFrozen(first));
   assert.throws(() => Object.assign(first, { nickname: "Other" }), TypeError);
   assert.equal(createRoundIdentity(" ", false), null);
